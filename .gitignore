@@ -1,0 +1,7 @@
+
+*.pdf
+.vscode/launch.json
+.vscode/settings.json
+*.o
+TCP_Receiver
+TCP_Sender
