@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/time.h>
 //
 
 // defines
@@ -16,6 +17,8 @@
 #define NUM_OF_CLINETS 1
 #define DEFAULT_ALGO "reno"
 #define BUFFER_SIZE 1024
+#define SEND_AGAIN_YES "cont"
+#define SEND_AGAIN_NO "exit"
 //
 
 int main(int argsc, char **argsv)
@@ -155,10 +158,10 @@ int main(int argsc, char **argsv)
     {
         // Try to accept a new client connection.
         int client_sock = accept(sock, (struct sockaddr *)&client, &client_len);
-        clock_t start_time,endtime;
-        double total;
+        struct timeval t_start, t_end;
+        double total = 0;
+        int iterations = 0;
         // timer_t end_time = 0;
-        start_time = clock();
         // If the accept call failed, print an error message and return 1.
         if (client_sock < 0)
         {
@@ -170,33 +173,62 @@ int main(int argsc, char **argsv)
         // Print a message to the standard output to indicate that a new client has connected.
         fprintf(stdout, "Client %s:%d connected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
 
+        // Create a buffer to store the received answer if continue or exit
+        char ansbuffer[sizeof(char) * 7] = {0};
         // Create a buffer to store the received message.
         char buffer[BUFFER_SIZE] = {0};
+        
+        printf("receiving answer\n");
+        // Receive a message from the client and store it in the buffer.will be yes first
+        int bytes_received = recv(client_sock, ansbuffer, BUFFER_SIZE, 0);
 
-        // Receive a message from the client and store it in the buffer.
-        int bytes_received = recv(client_sock, buffer, BUFFER_SIZE, 0);
-
-        // If the message receiving failed, print an error message and return 1.
         if (bytes_received < 0)
         {
-            perror("recv(2)");
+            perror("recv(answer)");
             close(client_sock);
             close(sock);
             return 1;
         }
-        // If the amount of received bytes is 0, the client has disconnected.
-        // Close the client's socket and continue to the next iteration.
-        else if (bytes_received == 0)
-        {
-            fprintf(stdout, "Client %s:%d disconnected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
-            close(client_sock);
-            continue;
-        }
-        endtime = clock();
-        total = (double)(endtime-start_time)/CLOCKS_PER_SEC;
-        total *= 1000;
 
-        printf("total time = %f\n",total);
+        while (strcmp(ansbuffer, SEND_AGAIN_YES) == 0)
+        {
+            iterations++;
+            gettimeofday(&t_start, NULL);
+            printf("receiving\n");
+            bytes_received = recv(client_sock, buffer, BUFFER_SIZE, 0);
+            // If the message receiving failed, print an error message and return 1.
+            if (bytes_received < 0)
+            {
+                perror("recv(message)");
+                close(client_sock);
+                return 1;
+            }
+            // If the amount of received bytes is 0, the client has disconnected.
+            // Close the client's socket and continue to the next iteration.
+            else if (bytes_received == 0)
+            {
+                fprintf(stdout, "Client %s:%d disconnected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+                close(client_sock);
+                continue;
+            }
+            gettimeofday(&t_end, NULL);
+            total += (t_end.tv_sec - t_start.tv_sec) * 1000 + ((float)t_end.tv_usec - t_start.tv_usec) / 1000;
+
+            printf("receiving answer\n");
+            // Receive a message from the client and store it in the buffer.will be yes first
+            bytes_received = recv(client_sock, ansbuffer, BUFFER_SIZE, 0);
+            
+            if (bytes_received < 0)
+            {
+                perror("recv(answer)");
+                close(client_sock);
+                close(sock);
+                return 1;
+            }
+        }
+
+        printf("total time = %f\n", total);
+        printf("num of rounds = %d\n",iterations);
 
         // Ensure that the buffer is null-terminated, no matter what message was received.
         // This is important to avoid SEGFAULTs when printing the buffer.
@@ -229,9 +261,9 @@ int main(int argsc, char **argsv)
         close(client_sock);
 
         fprintf(stdout, "Client %s:%d disconnected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+
+        fprintf(stdout, "Server finished!\n");
+
+        return 0;
     }
-
-    fprintf(stdout, "Server finished!\n");
-
-    return 0;
 }

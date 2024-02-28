@@ -9,7 +9,6 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <time.h>
-#include <math.h>
 //
 
 // define
@@ -17,6 +16,8 @@
 #define DEFAULT_SERVER_IP_ADDRESS "127.0.0.1"
 #define DEFAULT_ALGO "reno"
 #define NUM_OF_RUNS 10
+#define SEND_AGAIN_YES "cont"
+#define SEND_AGAIN_NO "exit"
 //
 
 int sendall(int s, char *buf, int *len);
@@ -25,7 +26,7 @@ int user_cont();
 
 int main(int argsc, char **argsv)
 {
-    int data_size = pow(2, 25);
+    int data_size = 2 * 1024 * 1024;
     char *rnd_file_buffer = util_generate_random_data(data_size);
     char *tcp_algo = DEFAULT_ALGO;
     char *ip_address = DEFAULT_SERVER_IP_ADDRESS;
@@ -159,17 +160,15 @@ int main(int argsc, char **argsv)
         close(sock);
         return 1;
     }
-    fprintf(stdout, "Successfully connected to the server!\n"
-                    "Sending message to the server: %s\n",
-            "message");
+    fprintf(stdout, "client: Successfully connected to the server!\n");
+
+    char *yes = SEND_AGAIN_YES;
+    char *no = SEND_AGAIN_NO;
 
     do
     {
-        // Try to send the message to the server using the socket.
-        int bytes_sent = send(sock, rnd_file_buffer, strlen(rnd_file_buffer) + 1, 0);
-
-        // If the message sending failed, print an error message and return 1.
-        // If no data was sent, print an error message and return 1. Only occurs if the connection was closed.
+        printf("client: Sending message to the server\n");
+        int bytes_sent = send(sock, yes, strlen(yes) + 1, 0);
         if (bytes_sent <= 0)
         {
             perror("send(2): ");
@@ -177,9 +176,28 @@ int main(int argsc, char **argsv)
             return 1;
         }
 
-        fprintf(stdout, "Client: Sent %d bytes to the server!\n", bytes_sent);
-    } while (0);
+        // Try to send the message to the server using the socket.
+        bytes_sent = send(sock, rnd_file_buffer, strlen(rnd_file_buffer) + 1, 0);
 
+        // If the message sending failed, print an error message and return 1.
+        // If no data was sent, print an error message and return 1. Only occurs if the connection was closed.
+        if (bytes_sent <= 0)
+        {
+            perror("send(message): ");
+            close(sock);
+            return 1;
+        }
+
+        //fprintf(stdout, "Client: Sent %d bytes to the server!\n", bytes_sent);
+    } while (user_cont());
+
+    int bytes_sent = send(sock, no, strlen(no) + 1, 0);
+    if (bytes_sent <= 0)
+    {
+        perror("send(2): ");
+        close(sock);
+        return 1;
+    }
     // message recive code
     /*
         // Try to receive a message from the server using the socket and store it in the buffer.
@@ -207,7 +225,7 @@ int main(int argsc, char **argsv)
     // Close the socket with the server.
     close(sock);
 
-    fprintf(stdout, "Connection closed!\n");
+    fprintf(stdout, "client: Connection closed!\n");
 
     // Return 0 to indicate that the client ran successfully.
     return 0;
@@ -218,14 +236,36 @@ int main(int argsc, char **argsv)
 int user_cont()
 {
     char ans = 0;
-    printf("do you want to send file again motherfucker?");
+    printf("do you want to send file again motherfricker? y/n: ");
     scanf("%c", &ans);
-    if (ans == 'y')
+    if (ans=='y')
         return 1;
     else
     {
         return 0;
     }
+}
+
+int sendall(int s, char *buf, int *len)
+{
+    int total = 0;        // how many bytes we've sent
+    int bytesleft = *len; // how many we have left to send
+    int n;
+
+    while (total < *len)
+    {
+        n = send(s, buf + total, bytesleft, 0);
+        if (n == -1)
+        {
+            break;
+        }
+        total += n;
+        bytesleft -= n;
+    }
+
+    *len = total; // return number actually sent here
+
+    return n == -1 ? -1 : 0; // return -1 on failure, 0 on success
 }
 
 /* @brief
@@ -251,3 +291,4 @@ char *util_generate_random_data(unsigned int size)
         *(buffer + i) = ((unsigned int)rand() % 256);
     return buffer;
 }
+
