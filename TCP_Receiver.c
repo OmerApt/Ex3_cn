@@ -16,7 +16,7 @@
 #define DEFAULT_SERVER_PORT 55447
 #define NUM_OF_CLINETS 1
 #define DEFAULT_ALGO "reno"
-#define BUFFER_SIZE 2*1024*1024
+#define BUFFER_SIZE 3 * 1024 * 1024
 #define SEND_AGAIN_YES "cont"
 #define SEND_AGAIN_NO "exit"
 //
@@ -161,7 +161,9 @@ int main(int argsc, char **argsv)
         int client_sock = accept(sock, (struct sockaddr *)&client, &client_len);
         struct timeval t_start, t_end;
         double total = 0;
+        double roundtime = 0;
         int iterations = 0;
+        long totalBytesreceived = 0;
         // timer_t end_time = 0;
         // If the accept call failed, print an error message and return 1.
         if (client_sock < 0)
@@ -179,11 +181,13 @@ int main(int argsc, char **argsv)
         // Create a buffer to store the received message.
         char buffer[BUFFER_SIZE] = {0};
 
+        int bytes_received;
+
         // Receive a message from the client and store it in the buffer.will be yes first
-        int bytes_received = recv(client_sock, ansbuffer, BUFFER_SIZE, 0);
+        int ans_bytes_received = recv(client_sock, ansbuffer, BUFFER_SIZE, 0);
         printf("receiving answer\n");
 
-        if (bytes_received < 0)
+        if (ans_bytes_received < 0)
         {
             perror("recv(answer)");
             close(client_sock);
@@ -202,9 +206,9 @@ int main(int argsc, char **argsv)
 
         while (strcmp(ansbuffer, SEND_AGAIN_YES) == 0)
         {
-            
+
             iterations++;
-            printf("Server: round %d",iterations);
+            printf("Server: round %d\n", iterations);
             gettimeofday(&t_start, NULL);
             bytes_received = recv(client_sock, buffer, BUFFER_SIZE, 0);
             printf("Server: receiving message\n");
@@ -224,13 +228,18 @@ int main(int argsc, char **argsv)
                 continue;
             }
             gettimeofday(&t_end, NULL);
-            total += (t_end.tv_sec - t_start.tv_sec) * 1000 + ((float)t_end.tv_usec - t_start.tv_usec) / 1000;
-            
+            totalBytesreceived = totalBytesreceived + bytes_received;
+            roundtime = (t_end.tv_sec - t_start.tv_sec) * 1000 + ((float)t_end.tv_usec - t_start.tv_usec) / 1000;
+            total = total + roundtime;
+
+            fprintf(stdout, "Server: time of round = %.2f ms\n", roundtime);
+            printf("Server: recieved %d bytes\n", bytes_received);
+
             // Receive a message from the client and store it in the buffer.will be yes first
-            bytes_received = recv(client_sock, ansbuffer, BUFFER_SIZE, 0);
+            ans_bytes_received = recv(client_sock, ansbuffer, BUFFER_SIZE, 0);
             printf("Server: receiving answer\n");
 
-            if (bytes_received < 0)
+            if (ans_bytes_received < 0)
             {
                 perror("recv(answer)");
                 close(client_sock);
@@ -250,8 +259,18 @@ int main(int argsc, char **argsv)
         }
         // printf("Server: exiting\n");
 
-        printf("Server: total time = %f\n", total);
+        fprintf(stdout, "Server: total time = %.2f ms\n", total);
         printf("Server: num of rounds = %d\n", iterations);
+        fprintf(stdout, "avg rtt = %.2f\n", total / iterations);
+        double avgthroughput = 0;
+        if (total != 0)
+        {
+            avgthroughput = (double)totalBytesreceived * 8;
+            avgthroughput = avgthroughput / ((1.0 / 1000) * total);
+            avgthroughput = avgthroughput / 1000000;
+        }
+        fprintf(stdout, "Server: avg throughput = %fmbps\n",avgthroughput);
+        printf("Server: algorithm used = %s\n", alg_buf);
 
         // Ensure that the buffer is null-terminated, no matter what message was received.
         // This is important to avoid SEGFAULTs when printing the buffer.
@@ -283,9 +302,9 @@ int main(int argsc, char **argsv)
         // Close the client's socket and continue to the next iteration.
         close(client_sock);
 
-        fprintf(stdout, "Client %s:%d disconnected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+        fprintf(stdout, "Server: Client %s:%d disconnected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
 
-        fprintf(stdout, "Server finished!\n");
+        fprintf(stdout, "Server: Server finished!\n");
 
         return 0;
     }

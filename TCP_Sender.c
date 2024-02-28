@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <time.h>
+#include <math.h>
 //
 
 // define
@@ -28,7 +29,7 @@ int user_cont();
 
 int main(int argsc, char **argsv)
 {
-    int data_size = 2 * 1024 * 1024;
+    int data_size = (int)pow(2,21);
     char *rnd_file_buffer = util_generate_random_data(data_size);
     char *tcp_algo = DEFAULT_ALGO;
     char *ip_address = DEFAULT_SERVER_IP_ADDRESS;
@@ -201,9 +202,9 @@ int main(int argsc, char **argsv)
             close(sock);
             return 1;
         }
-
+        fprintf(stdout, "Client: Sent %d bytes to the server!\n", bytes_sent);
         ans = user_cont();
-        // fprintf(stdout, "Client: Sent %d bytes to the server!\n", bytes_sent);
+
     } while (ans == 1);
 
     printf("client: Sending no to the server\n");
