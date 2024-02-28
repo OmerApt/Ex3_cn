@@ -16,7 +16,7 @@
 #define DEFAULT_SERVER_PORT 55447
 #define NUM_OF_CLINETS 1
 #define DEFAULT_ALGO "reno"
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 2*1024*1024
 #define SEND_AGAIN_YES "cont"
 #define SEND_AGAIN_NO "exit"
 //
@@ -154,6 +154,7 @@ int main(int argsc, char **argsv)
     // double total_of_all;
 
     // The server's main loop.
+    // int counter =0;
     while (1)
     {
         // Try to accept a new client connection.
@@ -177,25 +178,36 @@ int main(int argsc, char **argsv)
         char ansbuffer[sizeof(char) * 7] = {0};
         // Create a buffer to store the received message.
         char buffer[BUFFER_SIZE] = {0};
-        
-        printf("receiving answer\n");
+
         // Receive a message from the client and store it in the buffer.will be yes first
         int bytes_received = recv(client_sock, ansbuffer, BUFFER_SIZE, 0);
+        printf("receiving answer\n");
 
         if (bytes_received < 0)
         {
             perror("recv(answer)");
             close(client_sock);
-            close(sock);
+            return 1;
+        }
+
+        int bytes_sent = send(client_sock, "ack", strlen("ack"), 0);
+        printf("Server: sent ack\n");
+
+        if (bytes_sent <= 0)
+        {
+            perror("send(message): ");
+            close(client_sock);
             return 1;
         }
 
         while (strcmp(ansbuffer, SEND_AGAIN_YES) == 0)
         {
+            
             iterations++;
+            printf("Server: round %d",iterations);
             gettimeofday(&t_start, NULL);
-            printf("receiving\n");
             bytes_received = recv(client_sock, buffer, BUFFER_SIZE, 0);
+            printf("Server: receiving message\n");
             // If the message receiving failed, print an error message and return 1.
             if (bytes_received < 0)
             {
@@ -207,17 +219,17 @@ int main(int argsc, char **argsv)
             // Close the client's socket and continue to the next iteration.
             else if (bytes_received == 0)
             {
-                fprintf(stdout, "Client %s:%d disconnected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+                fprintf(stdout, "Server: Client %s:%d disconnected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
                 close(client_sock);
                 continue;
             }
             gettimeofday(&t_end, NULL);
             total += (t_end.tv_sec - t_start.tv_sec) * 1000 + ((float)t_end.tv_usec - t_start.tv_usec) / 1000;
-
-            printf("receiving answer\n");
+            
             // Receive a message from the client and store it in the buffer.will be yes first
             bytes_received = recv(client_sock, ansbuffer, BUFFER_SIZE, 0);
-            
+            printf("Server: receiving answer\n");
+
             if (bytes_received < 0)
             {
                 perror("recv(answer)");
@@ -225,17 +237,28 @@ int main(int argsc, char **argsv)
                 close(sock);
                 return 1;
             }
-        }
 
-        printf("total time = %f\n", total);
-        printf("num of rounds = %d\n",iterations);
+            int bytes_sent = send(client_sock, "ack", strlen("ack"), 0);
+            printf("Server: sent ack\n");
+
+            if (bytes_sent <= 0)
+            {
+                perror("send(message): ");
+                close(client_sock);
+                return 1;
+            }
+        }
+        // printf("Server: exiting\n");
+
+        printf("Server: total time = %f\n", total);
+        printf("Server: num of rounds = %d\n", iterations);
 
         // Ensure that the buffer is null-terminated, no matter what message was received.
         // This is important to avoid SEGFAULTs when printing the buffer.
         if (buffer[BUFFER_SIZE - 1] != '\0')
             buffer[BUFFER_SIZE - 1] = '\0';
 
-        fprintf(stdout, "Received %d bytes from the client %s:%d\n", bytes_received, inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+        fprintf(stdout, "Server: Received %d bytes from the client %s:%d\n", bytes_received, inet_ntoa(client.sin_addr), ntohs(client.sin_port));
 
         // Send back a message to the client.
         /*

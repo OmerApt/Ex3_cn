@@ -16,6 +16,8 @@
 #define DEFAULT_SERVER_IP_ADDRESS "127.0.0.1"
 #define DEFAULT_ALGO "reno"
 #define NUM_OF_RUNS 10
+
+#define ANS_BUF_SIZE sizeof(char) * 7
 #define SEND_AGAIN_YES "cont"
 #define SEND_AGAIN_NO "exit"
 //
@@ -164,10 +166,12 @@ int main(int argsc, char **argsv)
 
     char *yes = SEND_AGAIN_YES;
     char *no = SEND_AGAIN_NO;
-
+    int ans;
+    int bytes_received = 0;
+    char ansbuffer[ANS_BUF_SIZE] = {0};
     do
     {
-        printf("client: Sending message to the server\n");
+        printf("client: Sending answer to the server\n");
         int bytes_sent = send(sock, yes, strlen(yes) + 1, 0);
         if (bytes_sent <= 0)
         {
@@ -176,6 +180,16 @@ int main(int argsc, char **argsv)
             return 1;
         }
 
+        bytes_received = recv(sock, ansbuffer, ANS_BUF_SIZE, 0);
+        if (bytes_received < 0)
+        {
+            perror("recv(answer)");
+            close(sock);
+            return 1;
+        }
+        printf("client: recived ack\n");
+
+        printf("client: Sending message to the server\n");
         // Try to send the message to the server using the socket.
         bytes_sent = send(sock, rnd_file_buffer, strlen(rnd_file_buffer) + 1, 0);
 
@@ -188,9 +202,11 @@ int main(int argsc, char **argsv)
             return 1;
         }
 
-        //fprintf(stdout, "Client: Sent %d bytes to the server!\n", bytes_sent);
-    } while (user_cont());
+        ans = user_cont();
+        // fprintf(stdout, "Client: Sent %d bytes to the server!\n", bytes_sent);
+    } while (ans == 1);
 
+    printf("client: Sending no to the server\n");
     int bytes_sent = send(sock, no, strlen(no) + 1, 0);
     if (bytes_sent <= 0)
     {
@@ -236,12 +252,17 @@ int main(int argsc, char **argsv)
 int user_cont()
 {
     char ans = 0;
-    printf("do you want to send file again motherfricker? y/n: ");
-    scanf("%c", &ans);
-    if (ans=='y')
+    char yes = 'y';
+    printf("do you want to send file again motherfricker? y/n: \n");
+    scanf(" %c", &ans);
+    if (ans == yes)
+    {
+        // printf("client: answered yes");
         return 1;
+    }
     else
     {
+        // printf("client: %d \n",ans);
         return 0;
     }
 }
@@ -291,4 +312,3 @@ char *util_generate_random_data(unsigned int size)
         *(buffer + i) = ((unsigned int)rand() % 256);
     return buffer;
 }
-
