@@ -29,8 +29,19 @@ int user_cont();
 
 int main(int argsc, char **argsv)
 {
-    int data_size = (int)pow(2,21);
+    // code to generate a file bigger then 2.5 mb
+    unsigned int data_size = 3*1024*1024;
     char *rnd_file_buffer = util_generate_random_data(data_size);
+    // size_t file_len = strlen(rnd_file_buffer);
+    // while (file_len<2.5*1024*1024)
+    // {
+    //     free(rnd_file_buffer);
+    //     rnd_file_buffer = util_generate_random_data(data_size);
+    //     file_len = strlen(rnd_file_buffer);
+    //     printf("file len = %ld|| size suppoused to send = %d\n",file_len,data_size);
+    // }
+    //
+    
     char *tcp_algo = DEFAULT_ALGO;
     char *ip_address = DEFAULT_SERVER_IP_ADDRESS;
     int port_Address = DEFAULT_SERVER_PORT;
@@ -95,7 +106,7 @@ int main(int argsc, char **argsv)
     struct sockaddr_in server;
 
     // Create a message to send to the server.
-    // char *message = "Hello from client";
+    // char *message = "Hello from Sender";
 
     // // Create a buffer to store the received message.
     // char buffer[1024] = {0};
@@ -154,7 +165,7 @@ int main(int argsc, char **argsv)
     // so we first convert it to network byte order using the htons function.
     server.sin_port = htons(port_Address);
 
-    fprintf(stdout, "client: Connecting to %s:%d...\n", ip_address, port_Address);
+    fprintf(stdout, "Sender: Connecting to %s:%d...\n", ip_address, port_Address);
 
     // Try to connect to the server using the socket and the server structure.
     if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0)
@@ -163,7 +174,7 @@ int main(int argsc, char **argsv)
         close(sock);
         return 1;
     }
-    fprintf(stdout, "client: Successfully connected to the server!\n");
+    fprintf(stdout, "Sender: Successfully connected to the server!\n");
 
     char *yes = SEND_AGAIN_YES;
     char *no = SEND_AGAIN_NO;
@@ -172,7 +183,7 @@ int main(int argsc, char **argsv)
     char ansbuffer[ANS_BUF_SIZE] = {0};
     do
     {
-        printf("client: Sending answer to the server\n");
+        printf("Sender: Sending answer to the server\n");
         int bytes_sent = send(sock, yes, strlen(yes) + 1, 0);
         if (bytes_sent <= 0)
         {
@@ -188,9 +199,9 @@ int main(int argsc, char **argsv)
             close(sock);
             return 1;
         }
-        printf("client: recived ack\n");
+        printf("Sender: recived ack\n");
 
-        printf("client: Sending message to the server\n");
+        printf("Sender: Sending message to the server\n");
         // Try to send the message to the server using the socket.
         bytes_sent = send(sock, rnd_file_buffer, strlen(rnd_file_buffer) + 1, 0);
 
@@ -202,12 +213,12 @@ int main(int argsc, char **argsv)
             close(sock);
             return 1;
         }
-        fprintf(stdout, "Client: Sent %d bytes to the server!\n", bytes_sent);
+        fprintf(stdout, "Sender: Sent %d bytes to the server!\n", bytes_sent);
         ans = user_cont();
 
     } while (ans == 1);
 
-    printf("client: Sending no to the server\n");
+    printf("Sender: Sending no to the server\n");
     int bytes_sent = send(sock, no, strlen(no) + 1, 0);
     if (bytes_sent <= 0)
     {
@@ -242,9 +253,9 @@ int main(int argsc, char **argsv)
     // Close the socket with the server.
     close(sock);
 
-    fprintf(stdout, "client: Connection closed!\n");
+    fprintf(stdout, "Sender: Connection closed!\n");
 
-    // Return 0 to indicate that the client ran successfully.
+    // Return 0 to indicate that the Sender ran successfully.
     return 0;
 }
 
@@ -258,12 +269,12 @@ int user_cont()
     scanf(" %c", &ans);
     if (ans == yes)
     {
-        // printf("client: answered yes");
+        // printf("Sender: answered yes");
         return 1;
     }
     else
     {
-        // printf("client: %d \n",ans);
+        // printf("Sender: %d \n",ans);
         return 0;
     }
 }
@@ -310,6 +321,6 @@ char *util_generate_random_data(unsigned int size)
     // Randomize the seed of the random number generator.
     srand(time(NULL));
     for (unsigned int i = 0; i < size; i++)
-        *(buffer + i) = ((unsigned int)rand() % 256);
+        *(buffer + i) = (rand() % 256);
     return buffer;
 }

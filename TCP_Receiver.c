@@ -16,7 +16,7 @@
 #define DEFAULT_SERVER_PORT 55447
 #define NUM_OF_CLINETS 1
 #define DEFAULT_ALGO "reno"
-#define BUFFER_SIZE 3 * 1024 * 1024
+#define BUFFER_SIZE 5 * 1024 * 1024
 #define SEND_AGAIN_YES "cont"
 #define SEND_AGAIN_NO "exit"
 //
@@ -174,7 +174,7 @@ int main(int argsc, char **argsv)
         }
 
         // Print a message to the standard output to indicate that a new client has connected.
-        fprintf(stdout, "Client %s:%d connected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+        fprintf(stdout, "Sender %s:%d connected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
 
         // Create a buffer to store the received answer if continue or exit
         char ansbuffer[sizeof(char) * 7] = {0};
@@ -195,7 +195,7 @@ int main(int argsc, char **argsv)
         }
 
         int bytes_sent = send(client_sock, "ack", strlen("ack"), 0);
-        printf("Server: sent ack\n");
+        printf("Reciever: sent ack\n");
 
         if (bytes_sent <= 0)
         {
@@ -208,10 +208,10 @@ int main(int argsc, char **argsv)
         {
 
             iterations++;
-            printf("Server: round %d\n", iterations);
+            printf("Reciever: round %d\n", iterations);
             gettimeofday(&t_start, NULL);
             bytes_received = recv(client_sock, buffer, BUFFER_SIZE, 0);
-            printf("Server: receiving message\n");
+            printf("Reciever: receiving message\n");
             // If the message receiving failed, print an error message and return 1.
             if (bytes_received < 0)
             {
@@ -223,7 +223,7 @@ int main(int argsc, char **argsv)
             // Close the client's socket and continue to the next iteration.
             else if (bytes_received == 0)
             {
-                fprintf(stdout, "Server: Client %s:%d disconnected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+                fprintf(stdout, "Reciever: Sender %s:%d disconnected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
                 close(client_sock);
                 continue;
             }
@@ -232,12 +232,12 @@ int main(int argsc, char **argsv)
             roundtime = (t_end.tv_sec - t_start.tv_sec) * 1000 + ((float)t_end.tv_usec - t_start.tv_usec) / 1000;
             total = total + roundtime;
 
-            fprintf(stdout, "Server: time of round = %.2f ms\n", roundtime);
-            printf("Server: recieved %d bytes\n", bytes_received);
+            fprintf(stdout, "Reciever: time of round = %.2f ms\n", roundtime);
+            printf("Reciever: recieved %d bytes\n", bytes_received);
 
             // Receive a message from the client and store it in the buffer.will be yes first
             ans_bytes_received = recv(client_sock, ansbuffer, BUFFER_SIZE, 0);
-            printf("Server: receiving answer\n");
+            printf("Reciever: receiving answer\n");
 
             if (ans_bytes_received < 0)
             {
@@ -248,7 +248,7 @@ int main(int argsc, char **argsv)
             }
 
             int bytes_sent = send(client_sock, "ack", strlen("ack"), 0);
-            printf("Server: sent ack\n");
+            printf("Reciever: sent ack\n");
 
             if (bytes_sent <= 0)
             {
@@ -257,11 +257,11 @@ int main(int argsc, char **argsv)
                 return 1;
             }
         }
-        // printf("Server: exiting\n");
+        // printf("Reciever: exiting\n");
 
-        fprintf(stdout, "Server: total time = %.2f ms\n", total);
-        printf("Server: num of rounds = %d\n", iterations);
-        fprintf(stdout, "avg rtt = %.2f\n", total / iterations);
+        fprintf(stdout, "Reciever: total time = %.2f ms\n", total);
+        printf("Reciever: num of rounds = %d\n", iterations);
+        fprintf(stdout, "Reciever: avg rtt = %.2f\n", total / iterations);
         double avgthroughput = 0;
         if (total != 0)
         {
@@ -269,15 +269,15 @@ int main(int argsc, char **argsv)
             avgthroughput = avgthroughput / ((1.0 / 1000) * total);
             avgthroughput = avgthroughput / 1000000;
         }
-        fprintf(stdout, "Server: avg throughput = %fmbps\n",avgthroughput);
-        printf("Server: algorithm used = %s\n", alg_buf);
+        fprintf(stdout, "Reciever: avg throughput = %fmbps\n",avgthroughput);
+        printf("Reciever: algorithm used = %s\n", alg_buf);
 
         // Ensure that the buffer is null-terminated, no matter what message was received.
         // This is important to avoid SEGFAULTs when printing the buffer.
         if (buffer[BUFFER_SIZE - 1] != '\0')
             buffer[BUFFER_SIZE - 1] = '\0';
 
-        fprintf(stdout, "Server: Received %d bytes from the client %s:%d\n", bytes_received, inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+        fprintf(stdout, "Reciever: Received %d bytes from the client %s:%d\n", bytes_received, inet_ntoa(client.sin_addr), ntohs(client.sin_port));
 
         // Send back a message to the client.
         /*
@@ -302,9 +302,9 @@ int main(int argsc, char **argsv)
         // Close the client's socket and continue to the next iteration.
         close(client_sock);
 
-        fprintf(stdout, "Server: Client %s:%d disconnected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+        fprintf(stdout, "Reciever: Sender %s:%d disconnected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
 
-        fprintf(stdout, "Server: Server finished!\n");
+        fprintf(stdout, "Reciever: Reciever finished!\n");
 
         return 0;
     }
