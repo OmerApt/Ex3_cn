@@ -270,7 +270,7 @@ int main(int argsc, char **argsv)
             avgthroughput = avgthroughput / 1000000;
         }
         fprintf(stdout, "Reciever: avg throughput = %fmbps\n",avgthroughput);
-        printf("Reciever: algorithm used = %s\n", alg_buf);
+        printf("Reciever: algorithm used = %s\n", tcp_algo);
 
         // Ensure that the buffer is null-terminated, no matter what message was received.
         // This is important to avoid SEGFAULTs when printing the buffer.

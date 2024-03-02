@@ -9,6 +9,14 @@
 #include <arpa/inet.h>
 #include <stdbool.h>
 
+//defines
+#define RUDP_ACK 'a'
+#define RUDP_SYN 's'
+#define RUDP_FIN 'f'
+#define RUDP_SYNACK 't'
+#define RUDP_FINACK 'g'
+//
+
 unsigned short int calculate_checksum(void *data, unsigned int bytes);
 
 RUDP_Socket *rudp_socket(bool isServer, unsigned short int listen_port)
