@@ -26,11 +26,13 @@
 int sendall(int s, char *buf, int *len);
 char *util_generate_random_data(unsigned int size);
 int user_cont();
+int send_message(int sockfd, char *buffer, char *ans_buff);
+char *int_to_str(unsigned int num);
 
 int main(int argsc, char **argsv)
 {
     // code to generate a file bigger then 2.5 mb
-    unsigned int data_size = 3*1024*1024;
+    unsigned int data_size = 3 * 1024 * 1024;
     char *rnd_file_buffer = util_generate_random_data(data_size);
     // size_t file_len = strlen(rnd_file_buffer);
     // while (file_len<2.5*1024*1024)
@@ -41,7 +43,7 @@ int main(int argsc, char **argsv)
     //     printf("file len = %ld|| size suppoused to send = %d\n",file_len,data_size);
     // }
     //
-    
+
     char *tcp_algo = DEFAULT_ALGO;
     char *ip_address = DEFAULT_SERVER_IP_ADDRESS;
     int port_Address = DEFAULT_SERVER_PORT;
@@ -183,6 +185,8 @@ int main(int argsc, char **argsv)
     char ansbuffer[ANS_BUF_SIZE] = {0};
     do
     {
+        printf("Sender: waiting for receiver\n");
+        recv(sock, ansbuffer, ANS_BUF_SIZE, 0);
         printf("Sender: Sending answer to the server\n");
         int bytes_sent = send(sock, yes, strlen(yes) + 1, 0);
         if (bytes_sent <= 0)
@@ -203,7 +207,8 @@ int main(int argsc, char **argsv)
 
         printf("Sender: Sending message to the server\n");
         // Try to send the message to the server using the socket.
-        bytes_sent = send(sock, rnd_file_buffer, strlen(rnd_file_buffer) + 1, 0);
+        // bytes_sent = send(sock, rnd_file_buffer, strlen(rnd_file_buffer) + 1, 0);
+        bytes_sent = send_message(sock, rnd_file_buffer, ansbuffer);
 
         // If the message sending failed, print an error message and return 1.
         // If no data was sent, print an error message and return 1. Only occurs if the connection was closed.
@@ -217,7 +222,8 @@ int main(int argsc, char **argsv)
         ans = user_cont();
 
     } while (ans == 1);
-
+    printf("Sender: waiting for receiver\n");
+    recv(sock, ansbuffer, ANS_BUF_SIZE, 0);
     printf("Sender: Sending no to the server\n");
     int bytes_sent = send(sock, no, strlen(no) + 1, 0);
     if (bytes_sent <= 0)
@@ -279,6 +285,26 @@ int user_cont()
     }
 }
 
+int send_message(int sockfd, char *buffer, char *ans_buff)
+{
+    int size = strlen(buffer) + 1;
+    char *str_size = int_to_str(size);
+    printf("Sender: size send = %s", str_size);
+    int unsigned sent;
+    send(sockfd, str_size, strlen(str_size) + 1, 0);
+    recv(sockfd, ans_buff, ANS_BUF_SIZE, 0);
+    sent = sendall(sockfd, buffer, &size);
+    recv(sockfd, ans_buff, ANS_BUF_SIZE, 0);
+    free(str_size);
+    return sent == 0;
+}
+char *int_to_str(unsigned int num)
+{
+    int length = snprintf(NULL, 0, "%d", num);
+    char *str = malloc(length + 1);
+    snprintf(str, length + 1, "%d", num);
+    return str;
+}
 int sendall(int s, char *buf, int *len)
 {
     int total = 0;        // how many bytes we've sent
@@ -319,8 +345,9 @@ char *util_generate_random_data(unsigned int size)
     if (buffer == NULL)
         return NULL;
     // Randomize the seed of the random number generator.
-    srand(time(NULL));
-    for (unsigned int i = 0; i < size; i++)
+    // srand(time(NULL));
+    for (unsigned int i = 0; i < size - 1; i++)
         *(buffer + i) = 'a';
+    *(buffer + size - 1) = '\n';
     return buffer;
 }
