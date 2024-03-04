@@ -1,3 +1,4 @@
+#include <stdbool.h>
 // A struct that represents RUDP Socket
 typedef struct _rudp_socket
 {

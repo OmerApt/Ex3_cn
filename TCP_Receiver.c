@@ -10,7 +10,6 @@
 #include <unistd.h>
 #include <time.h>
 #include <sys/time.h>
-#include "TCP_Receiver.h"
 //
 
 // defines
@@ -184,30 +183,9 @@ int main(int argsc, char **argsv)
         // Create a buffer to store the received message.
         char buffer[BUFFER_SIZE] = {0};
 
-        // // Receive a message from the client and store it in the buffer.will be yes first
-        // int ans_bytes_received = recv(client_sock, ansbuffer, BUFFER_SIZE, 0);
-        // printf("receiving answer\n");
-
-        // if (ans_bytes_received < 0)
-        // {
-        //     perror("recv(answer)");
-        //     close(client_sock);
-        //     return 1;
-        // }
-
-        // int bytes_sent = send(client_sock, "ack", strlen("ack"), 0);
-        // // printf("Reciever: sent ack\n");
-
-        // if (bytes_sent <= 0)
-        // {
-        //     perror("send(message): ");
-        //     close(client_sock);
-        //     return 1;
-        // }
-
         do
         {
-            send(client_sock,"rdy",4,0);
+            send(client_sock, "rdy", 4, 0);
             int ans_bytes_received = 0;
             // Receive a message from the client and store it in the buffer.will be yes first
             ans_bytes_received = recv(client_sock, ansbuffer, BUFFER_SIZE, 0);
@@ -237,7 +215,6 @@ int main(int argsc, char **argsv)
 
                 gettimeofday(&t_start, NULL);
                 printf("Reciever: round %d\n", iterations);
-                // bytes_received = recv(client_sock, buffer, BUFFER_SIZE, 0);
                 int bytes_received = recive_message(client_sock, buffer);
                 printf("Reciever: receiving message\n");
                 // If the message receiving failed, print an error message and return 1.
@@ -279,68 +256,6 @@ int main(int argsc, char **argsv)
         fprintf(stdout, "Reciever: avg throughput = %fmbps\n", avgthroughput);
         printf("Reciever: algorithm used = %s\n", tcp_algo);
 
-        // while (strcmp(ansbuffer, SEND_AGAIN_YES) == 0)
-        // {
-
-        //     iterations++;
-
-        //     gettimeofday(&t_start, NULL);
-        //     printf("Reciever: round %d\n", iterations);
-        //     // bytes_received = recv(client_sock, buffer, BUFFER_SIZE, 0);
-        //     int bytes_received = recive_message(client_sock, buffer);
-        //     printf("Reciever: receiving message\n");
-        //     // If the message receiving failed, print an error message and return 1.
-        //     if (bytes_received < 0)
-        //     {
-        //         perror("recv(message)");
-        //         close(client_sock);
-        //         return 1;
-        //     }
-        //     // If the amount of received bytes is 0, the client has disconnected.
-        //     // Close the client's socket and continue to the next iteration.
-        //     else if (bytes_received == 0)
-        //     {
-        //         fprintf(stdout, "Reciever: Sender %s:%d disconnected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
-        //         close(client_sock);
-        //         continue;
-        //     }
-        //     gettimeofday(&t_end, NULL);
-        //     totalBytesreceived = totalBytesreceived + bytes_received;
-        //     roundtime = (t_end.tv_sec - t_start.tv_sec) * 1000 + ((float)t_end.tv_usec - t_start.tv_usec) / 1000;
-        //     total = total + roundtime;
-
-        //     fprintf(stdout, "Reciever: time of round = %.2f ms\n", roundtime);
-        //     printf("Reciever: recieved %d bytes\n", bytes_received);
-        // }
-        // printf("Reciever: exiting\n");
-
-        // Ensure that the buffer is null-terminated, no matter what message was received.
-        // This is important to avoid SEGFAULTs when printing the buffer.
-        // if (buffer[BUFFER_SIZE - 1] != '\0')
-        // buffer[BUFFER_SIZE - 1] = '\0';
-
-        // fprintf(stdout, "Reciever: Received %d bytes from the client %s:%d\n", bytes_received, inet_ntoa(client.sin_addr), ntohs(client.sin_port));
-
-        // Send back a message to the client.
-        /*
-
-
-        int bytes_sent = send(client_sock, message, messageLen, 0);
-
-        // If the message sending failed, print an error message and return 1.
-        // We do not need to check for 0 bytes sent, as if the client disconnected, we would have already closed the socket.
-        if (bytes_sent < 0)
-        {
-            perror("send(2)");
-            close(client_sock);
-            close(sock);
-            return 1;
-        }
-
-        fprintf(stdout, "Sent %d bytes to the client %s:%d!\n", bytes_sent, inet_ntoa(client.sin_addr), ntohs(client.sin_port));
-
-
-        */
         // Close the client's socket and continue to the next iteration.
         close(client_sock);
 
@@ -390,12 +305,4 @@ int recive_message(int sockfd, char *buffer)
     free(str_size);
 
     return total_bytes_recived;
-    /*
-    int size = strlen(buffer) + 1;
-    char *str_size = int_to_str(size);
-    int unsigned sent;
-    send(sockfd, str_size, strlen(str_size) + 1, 0);
-    sent = send(sockfd,buffer,size,0);
-    return sent;
-    */
 }

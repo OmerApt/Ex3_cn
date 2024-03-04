@@ -9,15 +9,28 @@
 #include <arpa/inet.h>
 #include <stdbool.h>
 
-//defines
+// defines
+#define RUDP_DATA 'd'
 #define RUDP_ACK 'a'
 #define RUDP_SYN 's'
 #define RUDP_FIN 'f'
 #define RUDP_SYNACK 't'
 #define RUDP_FINACK 'g'
+#define RUDP_HEADER_SIZE 9
+// timeout value for use. in seconds
+#define RUDP_TIMEOUT_DEFUALT 5.0
+#define RUDP_TIMEOUT_ITERATIONS 3
 //
 
 unsigned short int calculate_checksum(void *data, unsigned int bytes);
+
+typedef struct __rudp_hdr
+{
+    char flag;
+    int length;
+    int checksum;
+}RudpHdr;
+
 
 RUDP_Socket *rudp_socket(bool isServer, unsigned short int listen_port)
 {
@@ -34,8 +47,36 @@ RUDP_Socket *rudp_socket(bool isServer, unsigned short int listen_port)
         sock->isServer = isServer;
         if (isServer)
         {
+            int opt = 1;
+            // Set the socket option to reuse the server's address.
+            // This is useful to avoid the "Address already in use" error message when restarting the server.
+            if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
+            {
+                perror("rudp_socket_setsockopt");
+                rudp_close(sock);
+                return NULL;
+            }
+
+            // The variable to store the server's address.
+            struct sockaddr_in server;
+            memset(&server, 0, sizeof(server));
+
+            // Set the server's address to "0.0.0.0" (all IP addresses on the local machine).
+            server.sin_addr.s_addr = INADDR_ANY;
+
+            // Set the server's address family to AF_INET (IPv4).
+            server.sin_family = AF_INET;
             // bind socket to port
-            sock->dest_addr->sin_port = listen_port;
+            server.sin_port = htons(listen_port);
+
+            int bindstat = -1;
+            bindstat = bind(sock->socket_fd, (struct sockaddr *)&server, sizeof(server));
+            if (bindstat < 0)
+            {
+                perror("rudp_socket_setsockopt");
+                rudp_close(sock);
+                return NULL;
+            }
         }
         sock->isConnected = false;
     }
@@ -45,6 +86,7 @@ RUDP_Socket *rudp_socket(bool isServer, unsigned short int listen_port)
 
 int rudp_connect(RUDP_Socket *sockfd, const char *dest_ip, unsigned short int dest_port)
 {
+    char *ack_buffer[RUDP_HEADER_SIZE];
     if (sockfd->isConnected == true)
         return 0;
 
@@ -53,23 +95,58 @@ int rudp_connect(RUDP_Socket *sockfd, const char *dest_ip, unsigned short int de
     // This should not fail if the address is valid (e.g. "127.0.0.1").
     if (inet_pton(AF_INET, dest_ip, &sockfd->dest_addr->sin_addr) <= 0)
     {
-        perror("inet_pton(3)");
+        perror("rudp_connect_inet_pton(3)");
         close(rudp_close(sockfd));
         return 0;
     }
 
     sockfd->dest_addr->sin_port = htons(dest_port);
 
-    if (connect(sockfd->socket_fd, sockfd->dest_addr, sizeof(sockfd->dest_addr))<0){
+    if (connect(sockfd->socket_fd, sockfd->dest_addr, sizeof(sockfd->dest_addr)) < 0)
+    {
+        perror("rudp_connect_connect: ");
         return 0;
-        perror("connect: ");
     }
-        return 1;
+    // receive ack from connected
+    if (rudp_recv(sockfd, ack_buffer, RUDP_HEADER_SIZE) < 0)
+    {
+        perror("rudp_connect_ACK: ");
+        return 0;
+    }
+    sockfd->isConnected = true;
+    return 1;
 }
 
 int rudp_accept(RUDP_Socket *sockfd)
 {
-    return 0;
+    if (!(sockfd->isServer))
+    {
+        perror("rudp_accept: socket is set to client.");
+        return 0;
+    }
+    if (sockfd->isConnected)
+    {
+        perror("rudp_accept: socket is already connected. ");
+        return 0;
+    }
+
+    char *ack_buffer[RUDP_HEADER_SIZE];
+
+    int client_sock = accept(sockfd->socket_fd, (struct sockaddr *)&(sockfd->dest_addr), sizeof(sockfd->dest_addr));
+
+    if (client_sock < 0)
+    {
+        perror("rudp_accept: ");
+        return 0;
+    }
+    int ack_sent = -1;
+    ack_sent = sendto(client_sock, RUDP_SYNACK, sizeof(RUDP_SYNACK), 0, (struct sockaddr *)&(sockfd->dest_addr), sizeof(sockfd->dest_addr));
+    if (ack_sent < -1)
+    {
+        perror("rudp_accept_ACK: ");
+        return 0;
+    }
+    return 1;
 }
 
 int rudp_recv(RUDP_Socket *sockfd, void *buffer, unsigned int buffer_size)
@@ -79,21 +156,38 @@ int rudp_recv(RUDP_Socket *sockfd, void *buffer, unsigned int buffer_size)
 
 int rudp_send(RUDP_Socket *sockfd, void *buffer, unsigned int buffer_size)
 {
+    double elapsed_time = 0;
+    int iterations = 0;
     return 0;
 }
 
 int rudp_disconnect(RUDP_Socket *sockfd)
 {
+    if (!(sockfd->isConnected))
+    {
+        return 0;
+    }
+
     return 0;
 }
 
 int rudp_close(RUDP_Socket *sockfd)
 {
+    if (sockfd != NULL)
+    {
+        if (sockfd->dest_addr != NULL)
+        {
+            free(sockfd->dest_addr);
+        }
+        free(sockfd);
+    }
     return 0;
 }
 
-void rudp_alloc()
-{
+//returns a buffer ready to be sent with provided header
+char *rudp_build_buffer(RudpHdr *headdr,char* buffer,unsigned int buffer_size){
+    char *n_buf = NULL;
+    n_buf = malloc(buffer_size + RUDP_HEADER_SIZE+ 1);
 }
 
 /*
