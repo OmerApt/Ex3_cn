@@ -220,7 +220,6 @@ int main(int argsc, char **argsv)
             close(sock);
             return 1;
         }
-        fprintf(stdout, "Sender: Sent %d bytes to the server!\n", bytes_sent);
         ans = user_cont();
 
     } while (ans == 1);
@@ -293,7 +292,7 @@ int send_message(int sockfd, char *buffer, char *ans_buff)
 {
     int size = strlen(buffer) + 1;
     char *str_size = int_to_str(size);
-    printf("Sender: size send = %s", str_size);
+    printf("Sender: size send = %s\n", str_size);
     int unsigned sent;
     send(sockfd, str_size, strlen(str_size) + 1, 0);
     recv(sockfd, ans_buff, ANS_BUF_SIZE, 0);
