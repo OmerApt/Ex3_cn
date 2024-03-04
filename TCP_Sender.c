@@ -185,6 +185,7 @@ int main(int argsc, char **argsv)
     char ansbuffer[ANS_BUF_SIZE] = {0};
     do
     {
+
         printf("Sender: waiting for receiver\n");
         recv(sock, ansbuffer, ANS_BUF_SIZE, 0);
         printf("Sender: Sending answer to the server\n");
@@ -203,9 +204,10 @@ int main(int argsc, char **argsv)
             close(sock);
             return 1;
         }
+        #ifdef DEBUG
         printf("Sender: recived ack\n");
-
         printf("Sender: Sending message to the server\n");
+        #endif
         // Try to send the message to the server using the socket.
         // bytes_sent = send(sock, rnd_file_buffer, strlen(rnd_file_buffer) + 1, 0);
         bytes_sent = send_message(sock, rnd_file_buffer, ansbuffer);
@@ -218,11 +220,12 @@ int main(int argsc, char **argsv)
             close(sock);
             return 1;
         }
-        fprintf(stdout, "Sender: Sent %d bytes to the server!\n", bytes_sent);
         ans = user_cont();
 
     } while (ans == 1);
+    #ifdef DEBUG
     printf("Sender: waiting for receiver\n");
+    #endif
     recv(sock, ansbuffer, ANS_BUF_SIZE, 0);
     printf("Sender: Sending no to the server\n");
     int bytes_sent = send(sock, no, strlen(no) + 1, 0);
@@ -289,7 +292,7 @@ int send_message(int sockfd, char *buffer, char *ans_buff)
 {
     int size = strlen(buffer) + 1;
     char *str_size = int_to_str(size);
-    printf("Sender: size send = %s", str_size);
+    printf("Sender: size send = %s\n", str_size);
     int unsigned sent;
     send(sockfd, str_size, strlen(str_size) + 1, 0);
     recv(sockfd, ans_buff, ANS_BUF_SIZE, 0);

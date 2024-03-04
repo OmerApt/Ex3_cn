@@ -189,7 +189,9 @@ int main(int argsc, char **argsv)
             int ans_bytes_received = 0;
             // Receive a message from the client and store it in the buffer.will be yes first
             ans_bytes_received = recv(client_sock, ansbuffer, BUFFER_SIZE, 0);
+            #ifdef DEBUG
             printf("Reciever: receiving answer\n");
+            #endif
 
             if (ans_bytes_received < 0)
             {
@@ -200,7 +202,9 @@ int main(int argsc, char **argsv)
             }
 
             int bytes_sent = send(client_sock, "ack", strlen("ack"), 0);
+            #ifdef DEBUG
             printf("Reciever: sent ack\n");
+            #endif
 
             if (bytes_sent <= 0)
             {
@@ -214,9 +218,14 @@ int main(int argsc, char **argsv)
                 iterations++;
 
                 gettimeofday(&t_start, NULL);
+                #ifdef DEBUG
                 printf("Reciever: round %d\n", iterations);
+                #endif
+                // bytes_received = recv(client_sock, buffer, BUFFER_SIZE, 0);
                 int bytes_received = recive_message(client_sock, buffer);
+                #ifdef DEBUG
                 printf("Reciever: receiving message\n");
+                #endif
                 // If the message receiving failed, print an error message and return 1.
                 if (bytes_received < 0)
                 {
@@ -242,10 +251,10 @@ int main(int argsc, char **argsv)
                 printf("Reciever: recieved %d bytes\n", bytes_received);
             }
         } while (strcmp(ansbuffer, SEND_AGAIN_YES) == 0);
-
-        fprintf(stdout, "Reciever: total time = %.2f ms\n", total);
-        printf("Reciever: num of rounds = %d\n", iterations);
-        fprintf(stdout, "Reciever: avg rtt = %.2f\n", total / iterations);
+        printf("\nStatistics:\n");
+        fprintf(stdout, "Total time = %.2f ms\n", total);
+        printf("num of rounds = %d\n", iterations);
+        fprintf(stdout, "Avg rtt = %.2f\n", total / iterations);
         double avgthroughput = 0;
         if (total != 0)
         {
@@ -253,8 +262,8 @@ int main(int argsc, char **argsv)
             avgthroughput = avgthroughput / ((1.0 / 1000) * total);
             avgthroughput = avgthroughput / 1000000;
         }
-        fprintf(stdout, "Reciever: avg throughput = %fmbps\n", avgthroughput);
-        printf("Reciever: algorithm used = %s\n", tcp_algo);
+        fprintf(stdout, "Avg throughput = %fmbps\n", avgthroughput);
+        printf("Algorithm used = %s\n", tcp_algo);
 
         // Close the client's socket and continue to the next iteration.
         close(client_sock);
@@ -281,7 +290,9 @@ int recive_message(int sockfd, char *buffer)
     else
     {
         send(sockfd, "ack", 4, 0);
+        #ifdef DEBUG
         printf("Reciver: sent ack size recived\n");
+        #endif
     }
     int size_left = atoi(str_size);
     bytes_recieved = 0;
@@ -300,8 +311,9 @@ int recive_message(int sockfd, char *buffer)
 
     } while (size_left > 0);
     send(sockfd, "ack", 4, 0);
+    #ifdef DEBUG
     printf("Reciver: sent ack msg recived\n");
-
+    #endif
     free(str_size);
 
     return total_bytes_recived;

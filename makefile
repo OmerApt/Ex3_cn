@@ -38,13 +38,18 @@ TCP_Sender: TCP_Sender.o
 ################
 
 # Run tcp server.
-runtr: TCP_Receiver
+runtr_cubic: TCP_Receiver
 	./TCP_Receiver -p 56469 -algo cubic &
 
+runtr_reno: TCP_Receiver
+	./TCP_Receiver -p 56469 -algo reno &
+
 # Run tcp client.
-runts: TCP_Sender
+runts_cubic: TCP_Sender
 	./TCP_Sender -p 56469 -algo cubic
 
+runts_reno: TCP_Sender
+	./TCP_Sender -p 56469 -algo reno
 
 
 ################
