@@ -24,12 +24,7 @@
 
 unsigned short int calculate_checksum(void *data, unsigned int bytes);
 
-typedef struct __rudp_hdr
-{
-    char flag;
-    int length;
-    int checksum;
-}RudpHdr;
+
 
 
 RUDP_Socket *rudp_socket(bool isServer, unsigned short int listen_port)
@@ -151,7 +146,13 @@ int rudp_accept(RUDP_Socket *sockfd)
 
 int rudp_recv(RUDP_Socket *sockfd, void *buffer, unsigned int buffer_size)
 {
-    return 0;
+    int bytes_received = recvfrom(sockfd->socket_fd, buffer, buffer_size, 0, NULL, NULL);
+    if (bytes_received == -1) {
+        perror("Error while receiving data");
+        return -1;
+    }
+
+    return bytes_received;
 }
 
 int rudp_send(RUDP_Socket *sockfd, void *buffer, unsigned int buffer_size)
