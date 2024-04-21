@@ -11,7 +11,7 @@ RM = rm -f
 .PHONY: all default clean run_tcp_server runtc runts runuc runus
 
 # Default target - compile everything and create the executables and libraries.
-all: TCP_Receiver TCP_Sender 
+all: TCP_Receiver TCP_Sender RUDP_Receiver RUDP_Sender
 
 # Alias for the default target.
 default: all
@@ -29,7 +29,14 @@ TCP_Receiver: TCP_Receiver.o
 TCP_Sender: TCP_Sender.o
 	$(CC) $(CFLAGS) -o $@ $^
 
-# Compile the udp server.
+
+# Compile the RUDP Receiver.
+RUDP_Receiver: RUDP_Receiver.o RUDP_API.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+# Compile the RUDP Sender.
+RUDP_Sender: RUDP_Sender.o RUDP_API.o
+	$(CC) $(CFLAGS) -o $@ $^
 
 
 
@@ -52,6 +59,15 @@ runts_reno: TCP_Sender
 	./TCP_Sender -p 56469 -algo reno
 
 
+# Run RUDP Receiver.
+runrur: RUDP_Receiver
+	./RUDP_Receiver
+
+# Run RUDP Sender.
+runrus: RUDP_Sender
+	./RUDP_Sender
+
+
 ################
 # System Trace #
 ################
@@ -64,7 +80,11 @@ runtr_trace: TCP_Receiver
 runts_trace: TCP_Sender
 	strace ./TCP_Sender
 
-
+runrus_trace: RUDP_Sender
+	strace ./RUDP_Sender
+	
+runrur_trace: RUDP_Receiver
+	strace ./RUDP_Receiver
 ################
 # Object files #
 ################
@@ -80,4 +100,4 @@ runts_trace: TCP_Sender
 
 # Remove all the object files, shared libraries and executables.
 clean:
-	$(RM) *.o *.so TCP_Receiver TCP_Sender 
+	$(RM) *.o *.so TCP_Receiver TCP_Sender RUDP_Receiver RUDP_Sender
