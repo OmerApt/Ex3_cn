@@ -8,12 +8,27 @@ bool isConnected; // True if there is an active connection, false otherwise.
 struct sockaddr_in* dest_addr; // Destination address. Client fills it when it connects via rudp_connect(), server fills it when it accepts a connection via rudp_accept().
 } RUDP_Socket;
 
+typedef struct _rudp_flags
+{
+    int syn:1;
+    int :1;
+    int fin:1;
+    int :1;
+    int ack:1;
+    int :1;
+    int data:1;
+    int :1;
+}Flags;
+
+
 typedef struct __rudp_hdr
 {
-    char flag;
-    int length;
-    int checksum;
-}RudpHdr;
+    Flags flags;
+    unsigned int length;
+    unsigned int checksum;
+    unsigned int seq;
+    char *data;
+}RudpPacket;
 
 // Allocates a new structure for the RUDP socket (contains basic information about the socket itself). Also creates a UDP socket as a baseline for the RUDP. isServer means that this socket acts like a server. If set to server socket, it also binds the socket to a specific port.
 RUDP_Socket* rudp_socket(bool isServer, unsigned short int listen_port);

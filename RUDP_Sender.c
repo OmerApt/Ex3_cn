@@ -89,7 +89,7 @@ int main(int argsc, char **argsv)
     //// finished args reading
 
 
-    RudpHdr rudp_header;
+    RudpPacket rudp_header;
     // The variable to store the socket file descriptor.
     int sock = -1;
 

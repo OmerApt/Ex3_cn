@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdbool.h>
+#include <sys/time.h>
 
 // defines
 #define RUDP_DATA 'd'
@@ -17,15 +18,18 @@
 #define RUDP_SYNACK 't'
 #define RUDP_FINACK 'g'
 #define RUDP_HEADER_SIZE 9
+#define Max_window_size 64000
+#define Max_data_size 5 * 1024 * 1024
 // timeout value for use. in seconds
-#define RUDP_TIMEOUT_DEFUALT 5.0
+#define RUDP_TIMEOUT_DEFUALT 3
 #define RUDP_TIMEOUT_ITERATIONS 3
 //
 
 unsigned short int calculate_checksum(void *data, unsigned int bytes);
-
-
-
+void socket_settings(RUDP_Socket *sock);
+RudpPacket *packet_create(int is_data,int ack,int syn,int fin,char *data,unsigned int length);
+RudpPacket *packet_recive();
+int packet_send(int sock_fd,RudpPacket *pack);
 
 RUDP_Socket *rudp_socket(bool isServer, unsigned short int listen_port)
 {
@@ -40,17 +44,9 @@ RUDP_Socket *rudp_socket(bool isServer, unsigned short int listen_port)
         int sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
         sock->socket_fd = sock_fd;
         sock->isServer = isServer;
+        socket_settings(sock);
         if (isServer)
         {
-            int opt = 1;
-            // Set the socket option to reuse the server's address.
-            // This is useful to avoid the "Address already in use" error message when restarting the server.
-            if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
-            {
-                perror("rudp_socket_setsockopt");
-                rudp_close(sock);
-                return NULL;
-            }
 
             // The variable to store the server's address.
             struct sockaddr_in server;
@@ -82,7 +78,7 @@ RUDP_Socket *rudp_socket(bool isServer, unsigned short int listen_port)
 int rudp_connect(RUDP_Socket *sockfd, const char *dest_ip, unsigned short int dest_port)
 {
     char *ack_buffer[RUDP_HEADER_SIZE];
-    if (sockfd->isConnected == true)
+    if (sockfd->isConnected == true || sockfd->isServer == true)
         return 0;
 
     sockfd->dest_addr->sin_family = AF_INET;
@@ -99,13 +95,13 @@ int rudp_connect(RUDP_Socket *sockfd, const char *dest_ip, unsigned short int de
 
     if (connect(sockfd->socket_fd, sockfd->dest_addr, sizeof(sockfd->dest_addr)) < 0)
     {
-        perror("rudp_connect_connect: ");
+        perror("rudp_connect-connect: ");
         return 0;
     }
     // receive ack from connected
     if (rudp_recv(sockfd, ack_buffer, RUDP_HEADER_SIZE) < 0)
     {
-        perror("rudp_connect_ACK: ");
+        perror("rudp_connect-ACK: ");
         return 0;
     }
     sockfd->isConnected = true;
@@ -147,7 +143,8 @@ int rudp_accept(RUDP_Socket *sockfd)
 int rudp_recv(RUDP_Socket *sockfd, void *buffer, unsigned int buffer_size)
 {
     int bytes_received = recvfrom(sockfd->socket_fd, buffer, buffer_size, 0, NULL, NULL);
-    if (bytes_received == -1) {
+    if (bytes_received == -1)
+    {
         perror("Error while receiving data");
         return -1;
     }
@@ -183,12 +180,6 @@ int rudp_close(RUDP_Socket *sockfd)
         free(sockfd);
     }
     return 0;
-}
-
-//returns a buffer ready to be sent with provided header
-char *rudp_build_buffer(RudpHdr *headdr,char* buffer,unsigned int buffer_size){
-    char *n_buf = NULL;
-    n_buf = malloc(buffer_size + RUDP_HEADER_SIZE+ 1);
 }
 
 /*
@@ -230,4 +221,45 @@ unsigned short int calculate_checksum(void *data, unsigned int bytes)
     while (total_sum >> 16)
         total_sum = (total_sum & 0xFFFF) + (total_sum >> 16);
     return (~((unsigned short int)total_sum));
+}
+
+void socket_settings(RUDP_Socket *sock)
+{
+    int opt = 1;
+    // Set the socket option to reuse the server's address.
+    // This is useful to avoid the "Address already in use" error message when restarting the server.
+    if (setsockopt(sock->socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
+    {
+        perror("rudp__setsockopt:reuse address");
+        rudp_close(sock);
+        return NULL;
+    }
+
+    struct timeval to;
+    to.tv_sec = RUDP_TIMEOUT_DEFUALT;
+    to.tv_usec = 0;
+
+    if (setsockopt(sock->socket_fd, SOL_SOCKET, SO_RCVTIMEO, &to, sizeof(to)) < 0)
+    {
+        perror("rudp_setsockopt:timeout");
+        rudp_close(sock);
+        return NULL;
+    }
+}
+
+RudpPacket *packet_create(int is_data, int ack, int syn, int fin,char *data, unsigned int length)
+{
+    RudpPacket *pack = malloc(sizeof(RudpPacket));
+    memset(pack,0,sizeof(RudpPacket));
+    pack->flags.data = is_data;
+    pack->flags.ack = ack;
+    pack->flags.syn = syn;
+    pack->flags.fin = fin;
+    if(is_data){
+        unsigned int check = calculate_checksum(data,length);
+        pack->data = data;
+        pack->length = length;
+        pack->checksum = check;
+    }
+    return pack;
 }

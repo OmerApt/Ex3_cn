@@ -28,18 +28,19 @@ int main(int argc, char **argv) {
     }
 
     // Socket setup
-    int sockfd = rudp_socket(); // Create RUDP socket
+    int sockfd = 0;
+    RudpPacket *sock = rudp_socket(true,port); // Create RUDP socket
     if (sockfd < 0) {
         perror("rudp_socket");
         return 1;
     }
 
-    // Bind to port
-    if (rudp_bind(sockfd, port) < 0) {
-        perror("rudp_bind");
-        rudp_close(sockfd);
-        return 1;
-    }
+    // // Bind to port
+    // if (rudp_bind(sockfd, port) < 0) {
+    //     perror("rudp_bind");
+    //     rudp_close(sockfd);
+    //     return 1;
+    // }
 
     fprintf(stdout, "Listening for incoming connections on port %d...\n", port);
 
@@ -47,14 +48,14 @@ int main(int argc, char **argv) {
     socklen_t client_addr_len = sizeof(client_addr);
 
     while (1) {
-        int client_sock = rudp_accept(sockfd, (struct sockaddr *)&client_addr, &client_addr_len);
-        if (client_sock < 0) {
+        int client_sock = rudp_accept(sock);
+        if (client_sock == 0) {
             perror("rudp_accept");
             rudp_close(sockfd);
             return 1;
         }
 
-        fprintf(stdout, "Sender %s:%d connected\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+        // fprintf(stdout, "Sender %s:%d connected\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 
         char buffer[BUFFER_SIZE];
         do {
