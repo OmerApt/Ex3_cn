@@ -1,7 +1,8 @@
 #include <stdbool.h>
 
 #define RUDP_HEADER_SIZE 9
-#define Max_window_size 64000 + RUDP_HEADER_SIZE
+#define Window_size 65000
+#define Max_window_size Window_size + RUDP_HEADER_SIZE
 
 // A struct that represents RUDP Socket
 typedef struct _rudp_socket
@@ -43,10 +44,10 @@ int rudp_connect(RUDP_Socket *sockfd, const char *dest_ip, unsigned short int de
 int rudp_accept(RUDP_Socket *sockfd);
 
 // Receives data from the other side and put it into the buffer. Returns the number of received bytes on success, 0 if got FIN packet (disconnect), and -1 on error. Fails if called when the socket is disconnected.
-int rudp_recv(RUDP_Socket *sockfd, void *buffer, unsigned int buffer_size);
+int rudp_recv(RUDP_Socket *sockfd, char *buffer, unsigned int buffer_size);
 
 // Sends data stores in buffer to the other side. Returns the number of sent bytes on success, 0 if got FIN packet (disconnect), and -1 on error. Fails if called when the socket is disconnected.
-int rudp_send(RUDP_Socket *sockfd, void *buffer, unsigned int buffer_size);
+int rudp_send(RUDP_Socket *sockfd, char *buffer, unsigned int buffer_size);
 
 // Disconnects from an actively connected socket. Returns 1 on success, 0 when the socket is already disconnected (failure).
 int rudp_disconnect(RUDP_Socket *sockfd);
