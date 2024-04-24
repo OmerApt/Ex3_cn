@@ -1,4 +1,8 @@
 #include <stdbool.h>
+
+#define RUDP_HEADER_SIZE 9
+#define Max_window_size 64000 + RUDP_HEADER_SIZE
+
 // A struct that represents RUDP Socket
 typedef struct _rudp_socket
 {
@@ -25,9 +29,8 @@ typedef struct __rudp_hdr
 {
     Flags flags;
     unsigned int length;
-    unsigned int checksum;
-    unsigned int seq;
-    char *data;
+    unsigned short int checksum;
+    char data[Max_window_size];
 }RudpPacket;
 
 // Allocates a new structure for the RUDP socket (contains basic information about the socket itself). Also creates a UDP socket as a baseline for the RUDP. isServer means that this socket acts like a server. If set to server socket, it also binds the socket to a specific port.

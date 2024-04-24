@@ -11,25 +11,16 @@
 #include <sys/time.h>
 
 // defines
-#define RUDP_DATA 'd'
-#define RUDP_ACK 'a'
-#define RUDP_SYN 's'
-#define RUDP_FIN 'f'
-#define RUDP_SYNACK 't'
-#define RUDP_FINACK 'g'
-#define RUDP_HEADER_SIZE 9
-#define Max_window_size 64000
 #define Max_data_size 5 * 1024 * 1024
 // timeout value for use. in seconds
 #define RUDP_TIMEOUT_DEFUALT 3
-#define RUDP_TIMEOUT_ITERATIONS 3
 //
 
 unsigned short int calculate_checksum(void *data, unsigned int bytes);
 void socket_settings(RUDP_Socket *sock);
-RudpPacket *packet_create(int is_data,int ack,int syn,int fin,char *data,unsigned int length);
+RudpPacket *packet_create(int is_data, int ack, int syn, int fin, char *data, unsigned int length);
 RudpPacket *packet_recive();
-int packet_send(int sock_fd,RudpPacket *pack);
+int packet_send(RUDP_Socket *sock_fd, RudpPacket *pack);
 
 RUDP_Socket *rudp_socket(bool isServer, unsigned short int listen_port)
 {
@@ -131,7 +122,7 @@ int rudp_accept(RUDP_Socket *sockfd)
         return 0;
     }
     int ack_sent = -1;
-    ack_sent = sendto(client_sock, RUDP_SYNACK, sizeof(RUDP_SYNACK), 0, (struct sockaddr *)&(sockfd->dest_addr), sizeof(sockfd->dest_addr));
+    // ack_sent = sendto(client_sock, RUDP_SYNACK, sizeof(RUDP_SYNACK), 0, (struct sockaddr *)&(sockfd->dest_addr), sizeof(sockfd->dest_addr));
     if (ack_sent < -1)
     {
         perror("rudp_accept_ACK: ");
@@ -154,8 +145,14 @@ int rudp_recv(RUDP_Socket *sockfd, void *buffer, unsigned int buffer_size)
 
 int rudp_send(RUDP_Socket *sockfd, void *buffer, unsigned int buffer_size)
 {
-    double elapsed_time = 0;
-    int iterations = 0;
+    int numofpackets = buffer_size / Max_window_size;
+    int lastpacket = buffer_size % Max_window_size;
+    for (int i = 0; i < numofpackets; i++)
+    {
+        RudpPacket *pck = packet_create(1, 0, 0, 0, buffer, Max_window_size);
+        int res = packet_send(sockfd, pck);
+    }
+
     return 0;
 }
 
@@ -247,19 +244,50 @@ void socket_settings(RUDP_Socket *sock)
     }
 }
 
-RudpPacket *packet_create(int is_data, int ack, int syn, int fin,char *data, unsigned int length)
+// create a packet with flags and copy length from data
+RudpPacket *packet_create(int is_data, int ack, int syn, int fin, char *data, unsigned int length)
 {
     RudpPacket *pack = malloc(sizeof(RudpPacket));
-    memset(pack,0,sizeof(RudpPacket));
+    memset(pack, 0, sizeof(RudpPacket));
     pack->flags.data = is_data;
     pack->flags.ack = ack;
     pack->flags.syn = syn;
     pack->flags.fin = fin;
-    if(is_data){
-        unsigned int check = calculate_checksum(data,length);
-        pack->data = data;
+    if (is_data)
+    {
+        unsigned short int check = calculate_checksum(data, length);
+        memcpy(pack->data, data, length);
         pack->length = length;
         pack->checksum = check;
     }
     return pack;
+}
+
+//return 1
+int packet_send(RUDP_Socket *sock_fd, RudpPacket *pack)
+{
+    // send packet
+    int sent = 0;
+    sent = sendto(sock_fd->socket_fd, pack, sizeof(pack), 0, NULL, 0);
+    if (sent < 0)
+    {
+        perror("packet_send-send: ");
+        return 0;
+    }
+
+    // recieve ack
+    RudpPacket *reply = (RudpPacket *)malloc(sizeof(RudpPacket));
+    int bytesreplyed = recvfrom(sock_fd->socket_fd,reply,Max_window_size,0,NULL,0);
+    if (bytesreplyed < 0)
+    {
+        perror("packet_send-recive ack: ");
+        free(reply);
+        return 0;
+    }
+    if(reply->length == pack->length && reply->flags.ack==1){
+        free(reply);
+        return 1;
+    }
+    free(reply);
+    return 0;
 }
