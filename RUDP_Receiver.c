@@ -48,7 +48,12 @@ int main(int argc, char **argv) {
     socklen_t client_addr_len = sizeof(client_addr);
 
     while (1) {
+        int iterations = 0;
+        int bytes_received =0;
+        double roundtime=0.0;
         int client_sock = rudp_accept(sock);
+        static unsigned long amountBytesReceived = 0;
+        static double amountOfTime =0;
         if (client_sock == 0) {
             perror("rudp_accept");
             rudp_close(sockfd);
@@ -58,16 +63,18 @@ int main(int argc, char **argv) {
         // fprintf(stdout, "Sender %s:%d connected\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 
         char buffer[BUFFER_SIZE];
+        char ansbuffer[sizeof(char) * 7] = {0};
+
         do {
             send(client_sock, "rdy", 4, 0); // Send ready signal
 
             // Receive request from sender
-            char ansbuffer[sizeof(char) * 7] = {0};
             recv(client_sock, ansbuffer, sizeof(ansbuffer), 0);
 
             if (strcmp(ansbuffer, SEND_AGAIN_YES) == 0) {
+                iterations =iterations+1;
                 // Receive message using RUDP
-                int bytes_received = rudp_recv(client_sock, buffer, BUFFER_SIZE, 0);
+                bytes_received = rudp_recv(client_sock, buffer, BUFFER_SIZE);
                 if (bytes_received < 0) {
                     perror("rudp_recv");
                     rudp_close(client_sock);
@@ -81,15 +88,35 @@ int main(int argc, char **argv) {
                 }
 
                 // Process received message
-                // Note: In RUDP, you might need to handle data integrity and sequence numbers here
 
                 // Acknowledge message
                 send(client_sock, "ack", strlen("ack"), 0);
-            }
-        } while (strcmp(ansbuffer, SEND_AGAIN_YES) == 0);
 
-        fprintf(stdout, "Receiver: Sender %s:%d disconnected\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+                struct timeval t_start, t_end;
+                gettimeofday(&t_end,NULL);
+                double roundtime = (t_end.tv_sec-t_start.tv_sec)*1000 +((float)t_end.tv_usec-t_start.tv_usec) /1000;
+                amountBytesReceived = amountBytesReceived + bytes_received;
+                amountOfTime = amountOfTime + roundtime;
+                
+                
+                
+            }
+        }
+        while (strcmp(ansbuffer, SEND_AGAIN_YES) == 0);
+        printf("\nStatistics : \n");
+        fprintf(stdout, "Total time = %.2f ms\n ",amountOfTime);
+        printf("Reciever: recieved %d bytes \n", bytes_received);
+        printf("num of rounds = %d\n", iterations);
+        fprintf(stdout, "Avg RTT = %.2f\n", roundtime/iterations);
+        double avgthroughput = 0;
+        if(roundtime != 0){
+            avgthroughput = (double)amountBytesReceived *8/ ((1.0/1000)*roundtime)/1000000;    
+        }
+        fprintf(stdout,"Avg throughput = %f Mbps \n",avgthroughput);       
         rudp_close(client_sock);
+        fprintf(stdout, "Receiver: Sender %s:%d disconnected\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+
+
     }
 
     rudp_close(sockfd);
