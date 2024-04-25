@@ -13,15 +13,17 @@
 // defines
 #define Max_data_size 5 * 1024 * 1024
 // timeout value for use. in seconds
-#define RUDP_TIMEOUT_DEFUALT 3
+#define RUDP_TIMEOUT_DEFUALT 1
 //
 #define RUDP_MAX_RETRANSMISSIONS 2
+#define PACKAGE_DELIVER_END "fnsh"
 unsigned short int calculate_checksum(void *data, unsigned int bytes);
 void socket_settings(RUDP_Socket *sock);
 RudpPacket *packet_create(int is_data, int ack, int syn, int fin, char *data, unsigned int size, unsigned int seq);
-RudpPacket *packet_recieve(RUDP_Socket *sock_fd,unsigned int seq);
+RudpPacket *packet_recieve(RUDP_Socket *sock_fd, unsigned int seq);
 int packet_send(RUDP_Socket *sock_fd, RudpPacket *pack);
 int recive_ack(RUDP_Socket *sock_fd, RudpPacket *pack);
+int delivery_finish_send(RUDP_Socket *sock, unsigned int seq);
 
 RUDP_Socket *rudp_socket(bool isServer, unsigned short int listen_port)
 {
@@ -88,18 +90,28 @@ int rudp_connect(RUDP_Socket *sockfd, const char *dest_ip, unsigned short int de
 
     sockfd->dest_addr->sin_port = htons(dest_port);
 
-    if (connect(sockfd->socket_fd, sockfd->dest_addr, sizeof(sockfd->dest_addr)) < 0)
+    if (connect(sockfd->socket_fd, (struct sockaddr *)&(sockfd->dest_addr), sizeof(sockfd->dest_addr)) < 0)
     {
         perror("rudp_connect-connect: ");
         return 0;
     }
+    RudpPacket *synpack = packet_create(0, 0, 1, 0, NULL, 0, 0);
+
+    int sent = sendto(sockfd->socket_fd, synpack, sizeof(synpack), 0, NULL, 0);
+    if (sent < 0)
+    {
+        perror("rudp_connect-send syn: ");
+        return 0;
+    }
     // receive ack from connected
-    int rep = recvfrom(sockfd->socket_fd, rep, RUDP_HEADER_SIZE, 0, NULL, 0);
+    size_t len = sizeof(sockfd->dest_addr);
+    int rep = recvfrom(sockfd->socket_fd, rep, RUDP_HEADER_SIZE, 0, (struct sockaddr *)NULL, NULL);
     if (rep < 0)
     {
         perror("rudp_connect-ACK: ");
         return 0;
     }
+    set_recv_timer(sockfd, RUDP_TIMEOUT_DEFUALT);
     sockfd->isConnected = true;
     return 1;
 }
@@ -116,43 +128,80 @@ int rudp_accept(RUDP_Socket *sockfd)
         perror("rudp_accept: socket is already connected. ");
         return 0;
     }
+    RudpPacket *synpack = (RudpPacket *)malloc(sizeof(RudpPacket));
+    memset(synpack, 0, sizeof(synpack));
 
-    char *ack_buffer[RUDP_HEADER_SIZE];
+    size_t len = sizeof(sockfd->dest_addr);
+    int n = recvfrom(sockfd->socket_fd, synpack, sizeof(synpack), 0, (struct sockaddr *)&(sockfd->dest_addr), &len);
 
-    int client_sock = accept(sockfd->socket_fd, (struct sockaddr *)&(sockfd->dest_addr), sizeof(sockfd->dest_addr));
-
-    if (client_sock < 0)
+    if (n < 0)
     {
         perror("rudp_accept: ");
         return 0;
     }
+
+    if (connect(sockfd->socket_fd, sockfd->dest_addr, sizeof(sockfd->dest_addr)) < 0)
+    {
+        perror("rudp_connect-connect: ");
+        return 0;
+    }
+
     int ack_sent = -1;
     // ack_sent = sendto(client_sock, RUDP_SYNACK, sizeof(RUDP_SYNACK), 0, (struct sockaddr *)&(sockfd->dest_addr), sizeof(sockfd->dest_addr));
+    RudpPacket *ackpack = packet_create(0, 0, 1, 0, NULL, 0, 0);
+    ack_sent = sendto(sockfd->socket_fd, ackpack, sizeof(ackpack), 0, NULL, 0);
     if (ack_sent < -1)
     {
         perror("rudp_accept_ACK: ");
         return 0;
     }
+    set_recv_timer(sockfd, RUDP_TIMEOUT_DEFUALT);
+    sockfd->isConnected = true;
     return 1;
 }
 
 int rudp_recv(RUDP_Socket *sockfd, char *buffer, unsigned int buffer_size)
 {
     static unsigned int sequence = 0;
+    bool is_continue = 1;
+    int bytecounter = 0;
 
     if (sockfd->isConnected == false)
     {
         return -1;
     }
 
-    int bytes_received = recvfrom(sockfd->socket_fd, buffer, buffer_size, 0, NULL, NULL);
-    if (bytes_received == -1)
-    {
-        perror("Error while receiving data");
-        return -1;
-    }
+    RudpPacket *pack;
 
-    return bytes_received;
+    do
+    {
+        pack = packet_recieve(sockfd, sequence);
+        if (pack != NULL)
+        {
+            if (pack->flags.data == 1)
+            {
+                if (strcmp(pack->data, PACKAGE_DELIVER_END) == 0)
+                {
+                    is_continue = 0;
+                }
+                else
+                {
+                    int len = strlen(pack->data);
+                    bytecounter += len;
+                    sequence ++;
+                }
+            }
+            else if (pack->flags.fin == 1)
+            {
+                is_continue = 0;
+            }
+        }else{
+            is_continue = 0;
+            bytecounter = -1;
+        }
+    } while (is_continue);
+
+    return bytecounter;
 }
 
 int rudp_send(RUDP_Socket *sockfd, char *buffer, unsigned int buffer_size)
@@ -194,6 +243,18 @@ int rudp_send(RUDP_Socket *sockfd, char *buffer, unsigned int buffer_size)
         }
         free(pck);
     }
+    int fnshres = delivery_finish_send(sockfd, numofpackets + 1);
+    if (fnshres == -1)
+    {
+        perror("finish packet send: ");
+        free(pck);
+        return -1;
+    }
+    else if (fnshres == 0)
+    {
+        free(pck);
+        return 0;
+    }
 
     return buffer_size;
 }
@@ -204,11 +265,14 @@ int rudp_disconnect(RUDP_Socket *sockfd)
     {
         return 0;
     }
-    RudpPacket *pck = packet_create(0, 0, 0, 0, NULL, 0, 0);
+    RudpPacket *pck = packet_create(0, 0, 0, 1, NULL, 0, 0);
     int res = packet_send(sockfd, pck);
     if (res == 0)
     {
         sockfd->isConnected = false;
+        if(sockfd->dest_addr!=NULL){
+            free(sockfd->dest_addr);
+        }
     }
     return 1;
 }
@@ -221,9 +285,10 @@ int rudp_close(RUDP_Socket *sockfd)
         {
             free(sockfd->dest_addr);
         }
+        close(sockfd->socket_fd);
         free(sockfd);
     }
-    return 0;
+    return 1;
 }
 
 /*
@@ -278,9 +343,12 @@ void socket_settings(RUDP_Socket *sock)
         rudp_close(sock);
         return NULL;
     }
+}
 
+void set_recv_timer(RUDP_Socket *sock, int timeinsec)
+{
     struct timeval to;
-    to.tv_sec = RUDP_TIMEOUT_DEFUALT;
+    to.tv_sec = timeinsec;
     to.tv_usec = 0;
 
     if (setsockopt(sock->socket_fd, SOL_SOCKET, SO_RCVTIMEO, &to, sizeof(to)) < 0)
@@ -302,7 +370,7 @@ RudpPacket *packet_create(int is_data, int ack, int syn, int fin, char *data, un
     pack->flags.fin = fin;
     if (is_data)
     {
-        memcpy(pack->data, data, size);
+        strncpy(pack->data, data, size);
         pack->length = seq;
     }
     unsigned short int check = calculate_checksum(pack, Max_window_size);
@@ -310,7 +378,8 @@ RudpPacket *packet_create(int is_data, int ack, int syn, int fin, char *data, un
     return pack;
 }
 
-RudpPacket *packet_recieve(RUDP_Socket *sock_fd,unsigned int seq)
+// returns packet if good else returns NULL
+RudpPacket *packet_recieve(RUDP_Socket *sock_fd, unsigned int seq)
 {
     RudpPacket *pck = (RudpPacket *)malloc(sizeof(RudpPacket));
     memset(pck, 0, sizeof(RudpPacket));
@@ -324,22 +393,42 @@ RudpPacket *packet_recieve(RUDP_Socket *sock_fd,unsigned int seq)
     unsigned short int recievedchecksum = pck->checksum;
     unsigned short int currcheck = calculate_checksum(pck, Max_window_size);
 
-    //rep = replay packet
+    // rep = replay packet
     RudpPacket *rep = (RudpPacket *)malloc(sizeof(RudpPacket));
     memset(rep, 0, sizeof(RudpPacket));
     rep->flags.data = 0;
-    if(recievedchecksum != currcheck){
-        rep->flags.ack = 0;
-        rep->length = seq;
-        rep->checksum = currcheck;
-        free(pck);
-        pck = NULL;
-    }else{
+    if (pck->flags.syn == 1)
+    {
         rep->flags.ack = 1;
-        rep->length = pck->length;
+        rep->flags.syn = 1;
+        rep->length = 0;
         rep->checksum = currcheck;
     }
-    
+    else if (pck->flags.fin == 1)
+    {
+        rep->flags.ack = 1;
+        rep->flags.fin = 1;
+        rep->length = -1;
+        rep->checksum = currcheck;
+    }
+    else
+    {
+        if (recievedchecksum != currcheck)
+        {
+            rep->flags.ack = 0;
+            rep->length = seq;
+            rep->checksum = currcheck;
+            free(pck);
+            pck = NULL;
+        }
+        else
+        {
+            rep->flags.ack = 1;
+            rep->length = pck->length;
+            rep->checksum = currcheck;
+        }
+    }
+
     sendto(sock_fd->socket_fd, rep, sizeof(rep), 0, NULL, 0);
     free(rep);
 
@@ -393,4 +482,26 @@ int packet_send(RUDP_Socket *sock_fd, RudpPacket *pack)
 int recive_ack(RUDP_Socket *sock_fd, RudpPacket *pack)
 {
     return 0;
+}
+
+/*
+tells the reciever that one full package has finished sending.
+returns 1=succses, 0=fin, -1=error
+*/
+int delivery_finish_send(RUDP_Socket *sock, unsigned int seq)
+{
+    RudpPacket *pck = packet_create(1, 0, 0, 0, "fnsh", 5, seq);
+    int res = packet_send(sock, pck);
+    if (res == -1)
+    {
+        // perror("last packet send: ");
+        free(pck);
+        return -1;
+    }
+    else if (res == 0)
+    {
+        free(pck);
+        return 0;
+    }
+    return 1;
 }

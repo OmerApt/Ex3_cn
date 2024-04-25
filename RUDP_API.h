@@ -31,7 +31,7 @@ typedef struct __rudp_hdr
     Flags flags;
     unsigned int length;
     unsigned short int checksum;
-    char data[Max_window_size];
+    char data[Max_window_size+1];
 }RudpPacket;
 
 // Allocates a new structure for the RUDP socket (contains basic information about the socket itself). Also creates a UDP socket as a baseline for the RUDP. isServer means that this socket acts like a server. If set to server socket, it also binds the socket to a specific port.
