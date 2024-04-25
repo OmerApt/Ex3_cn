@@ -11,7 +11,7 @@ RM = rm -f
 .PHONY: all default clean run_tcp_server runtc runts runuc runus
 
 # Default target - compile everything and create the executables and libraries.
-all: TCP_Receiver TCP_Sender RUDP_Receiver RUDP_Sender
+all: TCP_Receiver TCP_Sender RUDP_Sender
 
 # Alias for the default target.
 default: all

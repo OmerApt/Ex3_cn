@@ -75,10 +75,8 @@ int main(int argsc, char **argsv)
     }
 
     //// finished args reading
-
-    RudpPacket rudp_header;
     // The variable to store the socket file descriptor.
-    int sock = -1;
+    // int sock = -1;
 
     // The variable to store the server's address.
     struct sockaddr_in server;
@@ -88,7 +86,7 @@ int main(int argsc, char **argsv)
     // Try to create a TCP socket (IPv4, stream-based, default protocol).
     RUDP_Socket *sock = rudp_socket(false, port_Address);
     // If the socket creation failed, print an error message and return 1.
-    if (sock == -1)
+    if (sock == NULL)
     {
         perror("socket(2)");
         return 1;
@@ -150,7 +148,8 @@ int main(int argsc, char **argsv)
         if (bytes_sent <= 0)
         {
             perror("send(message): ");
-            close(sock);
+            // close(sock);
+            rudp_close(sock);
             return 1;
         }
         ans = user_cont();
@@ -167,7 +166,8 @@ int main(int argsc, char **argsv)
     if (bytes_sent <= 0)
     {
         perror("send(2): ");
-        close(sock);
+        // close(sock);
+        rudp_close(sock);
         return 1;
     }
 
