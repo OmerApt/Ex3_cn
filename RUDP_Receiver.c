@@ -28,9 +28,9 @@ int main(int argc, char **argv) {
     }
 
     // Socket setup
-    int sockfd = 0;
-    RudpPacket *sock = rudp_socket(true,port); // Create RUDP socket
-    if (sockfd < 0) {
+    
+    RUDP_Socket * sock = rudp_socket(true,port); // Create RUDP socket
+    if (sock -> socket_fd < 0) {
         perror("rudp_socket");
         return 1;
     }
@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
         static double amountOfTime =0;
         if (client_sock == 0) {
             perror("rudp_accept");
-            rudp_close(sockfd);
+            rudp_close(sock);
             return 1;
         }
 
@@ -66,24 +66,24 @@ int main(int argc, char **argv) {
         char ansbuffer[sizeof(char) * 7] = {0};
 
         do {
-            send(client_sock, "rdy", 4, 0); // Send ready signal
+            rudp_send(sock, "rdy", 4); // Send ready signal
 
             // Receive request from sender
-            recv(client_sock, ansbuffer, sizeof(ansbuffer), 0);
+            rudp_recv(sock, ansbuffer, sizeof(ansbuffer));
 
             if (strcmp(ansbuffer, SEND_AGAIN_YES) == 0) {
                 iterations =iterations+1;
                 // Receive message using RUDP
-                bytes_received = rudp_recv(client_sock, buffer, BUFFER_SIZE);
+                bytes_received = rudp_recv(sock, buffer, BUFFER_SIZE);
                 if (bytes_received < 0) {
                     perror("rudp_recv");
-                    rudp_close(client_sock);
-                    rudp_close(sockfd);
+                    rudp_close(sock);
+                    rudp_close(sock);
                     return 1;
                 } else if (bytes_received == 0) {
                     // Client disconnected
                     fprintf(stdout, "Receiver: Sender %s:%d disconnected\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
-                    rudp_close(client_sock);
+                    rudp_close(sock);
                     continue;
                 }
 
@@ -113,13 +113,13 @@ int main(int argc, char **argv) {
             avgthroughput = (double)amountBytesReceived *8/ ((1.0/1000)*roundtime)/1000000;    
         }
         fprintf(stdout,"Avg throughput = %f Mbps \n",avgthroughput);       
-        rudp_close(client_sock);
+        rudp_close(sock);
         fprintf(stdout, "Receiver: Sender %s:%d disconnected\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 
 
     }
 
-    rudp_close(sockfd);
+    rudp_close(sock);
     fprintf(stdout, "Receiver: Receiver finished!\n");
 
     return 0;
