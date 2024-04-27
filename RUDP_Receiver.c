@@ -52,7 +52,6 @@ int main(int argc, char **argv)
     {
         int iterations = 0;
         int bytes_received = 0;
-        double roundtime = 0.0;
         int client_sock = rudp_accept(sock);
         static unsigned long amountBytesReceived = 0;
         static double amountOfTime = 0;
@@ -76,7 +75,7 @@ int main(int argc, char **argv)
             printf("Receiver: getting ans\n");
             // Receive request from sender
             rudp_recv(sock, ansbuffer, sizeof(ansbuffer));
-            printf("Receiver: answer is %s\n",ansbuffer);
+            printf("Receiver: answer is %s\n", ansbuffer);
 
             if (strcmp(ansbuffer, SEND_AGAIN_YES) == 0)
             {
@@ -115,11 +114,13 @@ int main(int argc, char **argv)
         fprintf(stdout, "Total time = %.2f ms\n ", amountOfTime);
         printf("Reciever: recieved %d bytes \n", bytes_received);
         printf("num of rounds = %d\n", iterations);
-        fprintf(stdout, "Avg RTT = %.2f\n", roundtime / iterations);
+        fprintf(stdout, "Avg RTT = %.2f\n", amountOfTime / iterations);
         double avgthroughput = 0;
-        if (roundtime != 0)
+        if (amountOfTime != 0)
         {
-            avgthroughput = (double)amountBytesReceived * 8 / ((1.0 / 1000) * roundtime) / 1000000;
+            avgthroughput = (double)amountBytesReceived * 8;
+            avgthroughput = avgthroughput / ((1.0 / 1000) * amountOfTime) / 1000000;
+            avgthroughput = avgthroughput / 1000000;
         }
         fprintf(stdout, "Avg throughput = %f Mbps \n", avgthroughput);
         rudp_close(sock);
