@@ -16,11 +16,9 @@ typedef struct _rudp_socket
 typedef struct _rudp_flags
 {
     unsigned short syn : 1;
-    unsigned short : 0;
     unsigned short fin : 1;
     unsigned short : 0;
     unsigned short ack : 1;
-    unsigned short : 0;
     unsigned short data : 1;
     unsigned short : 0;
 } Flags;

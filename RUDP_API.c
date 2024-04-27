@@ -18,7 +18,7 @@
 //
 #define RUDP_MAX_RETRANSMISSIONS 2
 #define PACKAGE_DELIVER_END "fnsh"
-#define DEBUG 1
+// #define DEBUG 1
 unsigned short int calculate_checksum(void *data, unsigned int bytes);
 void socket_settings(RUDP_Socket *sock);
 void set_recv_timer(RUDP_Socket *sock, int timeinsec);
@@ -39,6 +39,7 @@ RUDP_Socket *rudp_socket(bool isServer, int listen_port)
         int sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
         sock->socket_fd = sock_fd;
         sock->isServer = isServer;
+        sock->dest_addr = NULL;
         socket_settings(sock);
         if (isServer)
         {
@@ -60,7 +61,7 @@ RUDP_Socket *rudp_socket(bool isServer, int listen_port)
             if (bindstat < 0)
             {
                 perror("rudp_socket_bind");
-                rudp_close(sock);
+                // rudp_close(sock);
                 return NULL;
             }
         }
@@ -86,7 +87,7 @@ int rudp_connect(RUDP_Socket *sockfd, const char *dest_ip, unsigned short int de
     if (inet_pton(AF_INET, dest_ip, &dest.sin_addr) <= 0)
     {
         perror("rudp_connect_inet_pton(3)");
-        rudp_close(sockfd);
+        // rudp_close(sockfd);
         return 0;
     }
 
@@ -183,7 +184,9 @@ int rudp_recv(RUDP_Socket *sockfd, char *buffer, int buffer_size)
 
     RudpPacket *pack;
     // printf("clearing buffer\n");
-    // memset(&buffer, '\0', sizeof(buffer));
+    // memset(&buffer, 0, buffer_size);
+    buffer[0] = 0;
+    // strcpy(buffer,"");
 
     do
     {
@@ -253,14 +256,23 @@ int rudp_send(RUDP_Socket *sockfd, char *buffer, int buffer_size)
         if (res == -1)
         {
             perror("err_packet send: ");
+#ifdef DEBUG
+            printf("rudp_send on error: freeing pck");
+#endif
             free(pck);
             return -1;
         }
         else if (res == 0)
         {
+#ifdef DEBUG
+            printf("rudp_send on fin: freeing pck");
+#endif
             free(pck);
             return 0;
         }
+#ifdef DEBUG
+        printf("rudp_send on suc: freeing pck");
+#endif
         free(pck);
     }
     if (lastpacketsize > 0)
@@ -294,6 +306,9 @@ int rudp_send(RUDP_Socket *sockfd, char *buffer, int buffer_size)
     }
     else if (fnshres == 0)
     {
+#ifdef DEBUG
+        printf("rudp_send on finish packet send: freeing pck");
+#endif
         free(pck);
         pck = NULL;
         return 0;
@@ -326,12 +341,10 @@ int rudp_close(RUDP_Socket *sockfd)
 {
     if (sockfd != NULL)
     {
-        if (sockfd->dest_addr != NULL)
-        {
-            free(sockfd->dest_addr);
-            sockfd->dest_addr = NULL;
-        }
         close(sockfd->socket_fd);
+#ifdef DEBUG
+        printf("rudp_close: freeing sockfd\n");
+#endif
         free(sockfd);
         sockfd = NULL;
     }
@@ -422,11 +435,11 @@ RudpPacket *packet_create(int is_data, int ack, int syn, int fin, char *data, un
 #endif
         memcpy(pack->data, data, size);
 #ifdef DEBUG
-       // printf("packet data is: %s\n", pack->data);
+        // printf("packet data is: %s\n", pack->data);
 #endif
         pack->length = seq;
     }
-    check = calculate_checksum(pack->data, size);
+    check = calculate_checksum(pack->data, Window_size);
     pack->checksum = check;
     return pack;
 }
@@ -445,6 +458,9 @@ RudpPacket *packet_recieve(RUDP_Socket *sock_fd, unsigned int seq)
     if (res < 0)
     {
         perror("packet_recive-recv: ");
+#ifdef DEBUG
+        printf("pakcet_receive: freeing pck\n");
+#endif
         free(pck);
         pck = NULL;
         return NULL;
@@ -483,6 +499,9 @@ RudpPacket *packet_recieve(RUDP_Socket *sock_fd, unsigned int seq)
             rep->flags.ack = 0;
             rep->length = seq;
             rep->checksum = currcheck;
+#ifdef DEBUG
+            printf("pakcet_receive: freeing pck\n");
+#endif
             free(pck);
             pck = NULL;
         }
@@ -495,6 +514,9 @@ RudpPacket *packet_recieve(RUDP_Socket *sock_fd, unsigned int seq)
     }
 
     sendto(sock_fd->socket_fd, rep, sizeof(RudpPacket), 0, NULL, 0);
+#ifdef DEBUG
+    printf("pakcet_receive: freeing rep\n");
+#endif
     free(rep);
     rep = NULL;
 
@@ -505,16 +527,18 @@ RudpPacket *packet_recieve(RUDP_Socket *sock_fd, unsigned int seq)
 int packet_send(RUDP_Socket *sock_fd, RudpPacket *pack)
 {
     int retransmissions_count = RUDP_MAX_RETRANSMISSIONS + 1;
+    RudpPacket *reply = (RudpPacket *)malloc(sizeof(RudpPacket));
     do
     {
         retransmissions_count--;
         // send packet
         int sent = 0;
-#ifdef DEBUG
-     //   printf("\n sending: %s bytes: %ld\n", pack->data, sizeof(pack));
-#endif
+
         sent = sendto(sock_fd->socket_fd, pack, Max_window_size, 0, NULL, 0);
+#ifdef DEBUG
+        //   printf("\n sending: %s bytes: %ld\n", pack->data, sizeof(pack));
         printf("\n sent %d bytes iteration %d\n", sent, retransmissions_count);
+#endif
         if (sent < 0)
         {
             perror("packet_send-send: \n");
@@ -523,30 +547,35 @@ int packet_send(RUDP_Socket *sock_fd, RudpPacket *pack)
         {
             // recieve ack
             // printf("packet recieve reply\n");
-            RudpPacket *reply = (RudpPacket *)malloc(sizeof(RudpPacket));
+
 #ifdef DEBUG
             if (reply == NULL)
             {
                 printf("allo fail\n");
             }
 
-            printf("packet_receive allocated reply\n");
+            printf("packet_send allocated reply\n");
 #endif
             // memset(&reply, 0, sizeof(RudpPacket));
             int bytesreplyed = recvfrom(sock_fd->socket_fd, reply, sizeof(RudpPacket) - 1, 0, NULL, 0);
-            printf("\n got reply flags: ack=%d   syn=%d  fin=%d  data=%d\n", reply->flags.ack, reply->flags.syn, reply->flags.fin, reply->flags.data);
+#ifdef DEBUG
+            // printf("packet_send: freeing reply\n");
+            printf("\npacket_send:got reply flags: ack=%d   syn=%d  fin=%d  data=%d\n", reply->flags.ack, reply->flags.syn, reply->flags.fin, reply->flags.data);
+#endif
             if (bytesreplyed < 0)
             {
                 perror("packet_send-recive ack: ");
-                free(reply);
-                reply = NULL;
-                return -1;
+
+                // free(reply);
+                // reply = NULL;
+                // return -1;
             }
             else if (reply->length == pack->length && reply->flags.ack == 1)
             {
 
 #ifdef DEBUG
                 printf("ack succses\n");
+                printf("packet_send on ack: freeing reply\n");
 #endif
                 free(reply);
                 reply = NULL;
@@ -554,16 +583,22 @@ int packet_send(RUDP_Socket *sock_fd, RudpPacket *pack)
             }
             if (reply->flags.fin == 1)
             {
+#ifdef DEBUG
+                printf("packet_send on fin: freeing reply\n");
+#endif
                 free(reply);
                 reply = NULL;
                 return 0;
             }
-            free(reply);
-            reply = NULL;
+#ifdef DEBUG
+            printf("packet_send: freeing reply\n");
+#endif
         }
 
     } while (retransmissions_count > 0);
 
+    free(reply);
+    reply = NULL;
     return -1;
 }
 
@@ -577,13 +612,19 @@ int delivery_finish_send(RUDP_Socket *sock, unsigned int seq)
     int res = packet_send(sock, pck);
     if (res == -1)
     {
-        // perror("last packet send: ");
+// perror("last packet send: ");
+#ifdef DEBUG
+        printf("delivery_finish_send: freeing pck\n");
+#endif
         free(pck);
         pck = NULL;
         return -1;
     }
     else if (res == 0)
     {
+#ifdef DEBUG
+        printf("delivery_finish_send: freeing pck\n");
+#endif
         free(pck);
         pck = NULL;
         return 0;

@@ -103,7 +103,7 @@ int main(int argc, char **argv)
                 // Process received message
 
                 // Acknowledge message
-                send(client_sock, "ack", strlen("ack"), 0);
+                // send(client_sock, "ack", strlen("ack"), 0);
 
                 gettimeofday(&t_end, NULL);
                 double roundtime = (t_end.tv_sec - t_start.tv_sec) * 1000 + ((float)t_end.tv_usec - t_start.tv_usec) / 1000;
@@ -126,7 +126,7 @@ int main(int argc, char **argv)
         fprintf(stdout, "Receiver: Sender %s:%d disconnected\n", inet_ntoa(sock->dest_addr->sin_addr), ntohs(sock->dest_addr->sin_port));
     }
 
-    rudp_close(sock);
+    // rudp_close(sock);
     fprintf(stdout, "Receiver: Receiver finished!\n");
 
     return 0;
