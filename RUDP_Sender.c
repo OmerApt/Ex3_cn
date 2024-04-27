@@ -33,8 +33,8 @@ int main(int argsc, char **argsv)
     // code to generate a file bigger then 2.5 mb
     unsigned int data_size = 3 * 1024 * 1024;
     char *rnd_file_buffer = util_generate_random_data(data_size);
-    char *ip_address;
-    unsigned short int port_Address;
+    char *ip_address = DEFAULT_SERVER_IP_ADDRESS;
+    int port_Address = DEFAULT_SERVER_PORT;
 
     if (argsc <= 1)
     {
@@ -79,11 +79,11 @@ int main(int argsc, char **argsv)
     // int sock = -1;
 
     // The variable to store the server's address.
-    struct sockaddr_in server;
+    // struct sockaddr_in server;
 
-    memset(&server, 0, sizeof(server));
+    // memset(&server, 0, sizeof(server));
 
-    // Try to create a TCP socket (IPv4, stream-based, default protocol).
+    // Try to create a RUDP socket (IPv4, datagram-based, default protocol).
     RUDP_Socket *sock = rudp_socket(false, port_Address);
     // If the socket creation failed, print an error message and return 1.
     if (sock == NULL)

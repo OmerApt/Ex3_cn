@@ -61,11 +61,11 @@ runts_reno: TCP_Sender
 
 # Run RUDP Receiver.
 runrur: RUDP_Receiver
-	./RUDP_Receiver
+	./RUDP_Receiver -p 56469 &
 
 # Run RUDP Sender.
 runrus: RUDP_Sender
-	./RUDP_Sender
+	./RUDP_Sender -p 56469
 
 
 ################
@@ -81,10 +81,10 @@ runts_trace: TCP_Sender
 	strace ./TCP_Sender
 
 runrus_trace: RUDP_Sender
-	strace ./RUDP_Sender
+	strace ./RUDP_Sender -p 56469
 	
 runrur_trace: RUDP_Receiver
-	strace ./RUDP_Receiver
+	strace ./RUDP_Receiver -p 56469 &
 ################
 # Object files #
 ################
