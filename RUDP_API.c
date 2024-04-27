@@ -244,6 +244,9 @@ int rudp_send(RUDP_Socket *sockfd, char *buffer, int buffer_size)
     RudpPacket *pck;
     for (int i = 0; i < numofpackets; i++)
     {
+#ifdef DEBUG
+        // printf();
+#endif
         memcpy(temp, (buffer + i * Window_size), Window_size);
         pck = packet_create(1, 0, 0, 0, temp, Window_size, i);
         int res = packet_send(sockfd, pck);
@@ -419,7 +422,7 @@ RudpPacket *packet_create(int is_data, int ack, int syn, int fin, char *data, un
 #endif
         memcpy(pack->data, data, size);
 #ifdef DEBUG
-        printf("packet data is: %s\n", pack->data);
+       // printf("packet data is: %s\n", pack->data);
 #endif
         pack->length = seq;
     }
@@ -438,6 +441,7 @@ RudpPacket *packet_recieve(RUDP_Socket *sock_fd, unsigned int seq)
     printf("packet_recieve allocated packet sizeof(RUDP_PACKET)=%ld\n", sizeof(RudpPacket));
 #endif
     int res = recvfrom(sock_fd->socket_fd, pck, sizeof(RudpPacket) - 1, 0, NULL, 0);
+    // recvfrom('',buffer)       buffer char[windowsize]
     if (res < 0)
     {
         perror("packet_recive-recv: ");
@@ -450,7 +454,7 @@ RudpPacket *packet_recieve(RUDP_Socket *sock_fd, unsigned int seq)
     currcheck = calculate_checksum(pck->data, Window_size);
 
 #ifdef DEBUG
-    printf("pack recv data=%s length=%d\n", pck->data,pck->length);
+    // printf("pack recv data=%s length=%d\n", pck->data, pck->length);
     printf("pack recvcheck=%d currcheck = %d\n", pck->checksum, currcheck);
 #endif
 
@@ -490,7 +494,7 @@ RudpPacket *packet_recieve(RUDP_Socket *sock_fd, unsigned int seq)
         }
     }
 
-    sendto(sock_fd->socket_fd, rep, Max_window_size, 0, NULL, 0);
+    sendto(sock_fd->socket_fd, rep, sizeof(RudpPacket), 0, NULL, 0);
     free(rep);
     rep = NULL;
 
@@ -507,9 +511,9 @@ int packet_send(RUDP_Socket *sock_fd, RudpPacket *pack)
         // send packet
         int sent = 0;
 #ifdef DEBUG
-        printf("\n sending: %s bytes: %ld\n", pack->data, sizeof(pack));
+     //   printf("\n sending: %s bytes: %ld\n", pack->data, sizeof(pack));
 #endif
-        sent = sendto(sock_fd->socket_fd, pack, sizeof(Max_window_size), 0, NULL, 0);
+        sent = sendto(sock_fd->socket_fd, pack, Max_window_size, 0, NULL, 0);
         printf("\n sent %d bytes iteration %d\n", sent, retransmissions_count);
         if (sent < 0)
         {

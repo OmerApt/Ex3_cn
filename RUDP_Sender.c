@@ -126,7 +126,7 @@ int main(int argsc, char **argsv)
         }
 
         // bytes_received = recv(sock, ansbuffer, ANS_BUF_SIZE, 0);
-        bytes_received = rudp_recv(sock, ansbuffer, ANS_BUF_SIZE);
+        // bytes_received = rudp_recv(sock, ansbuffer, ANS_BUF_SIZE);
         if (bytes_received < 0)
         {
             perror("recv(answer)");
