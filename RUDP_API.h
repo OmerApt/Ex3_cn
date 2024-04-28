@@ -15,20 +15,20 @@ typedef struct _rudp_socket
 
 typedef struct _rudp_flags
 {
-    unsigned short syn : 1;
-    unsigned short fin : 1;
+    unsigned short syn : 1; //is connection start
+    unsigned short fin : 1; // is connection ends
     unsigned short : 0;
-    unsigned short ack : 1;
-    unsigned short data : 1;
+    unsigned short ack : 1;// if this is an ack packet
+    unsigned short data : 1; // if packet contains data (not includes header)
     unsigned short : 0;
 } Flags;
 
 typedef struct __rudp_hdr
 {
-    Flags flags;
-    unsigned int length;
-    unsigned short int checksum;
-    char data[Window_size];
+    Flags flags; // the flags of this packet represented as bit field
+    unsigned int length; // equals as sequence, represents the number of part data that is sent
+    unsigned short int checksum; // checksum of the data that was calculated before send
+    char data[Window_size]; // the buffer data that you send/recieve
 } RudpPacket;
 
 // Allocates a new structure for the RUDP socket (contains basic information about the socket itself). Also creates a UDP socket as a baseline for the RUDP. isServer means that this socket acts like a server. If set to server socket, it also binds the socket to a specific port.

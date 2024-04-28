@@ -95,7 +95,7 @@ int main(int argc, char **argv)
                 {
                     // Client disconnected
                     fprintf(stdout, "Receiver: Sender %s:%d disconnected\n", inet_ntoa(sock->dest_addr->sin_addr), ntohs(sock->dest_addr->sin_port));
-                    rudp_close(sock);
+                    //rudp_close(sock);
                     continue;
                 }
 
@@ -112,7 +112,7 @@ int main(int argc, char **argv)
         } while (strcmp(ansbuffer, SEND_AGAIN_YES) == 0);
         printf("\nStatistics : \n");
         fprintf(stdout, "Total time = %.2f ms\n ", amountOfTime);
-        printf("Reciever: recieved %d bytes \n", bytes_received);
+        printf("Reciever: recieved %ld bytes \n", amountBytesReceived);
         printf("num of rounds = %d\n", iterations);
         fprintf(stdout, "Avg RTT = %.2f\n", amountOfTime / iterations);
         double avgthroughput = 0;

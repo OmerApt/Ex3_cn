@@ -162,7 +162,7 @@ int main(int argsc, char **argsv)
     rudp_recv(sock, ansbuffer, ANS_BUF_SIZE);
     printf("Sender: Sending no to the server\n");
     // int bytes_sent = send(sock, no, strlen(no) + 1, 0);
-    int bytes_sent =  rudp_send(sock,no,strlen(no)+1);
+    int bytes_sent = rudp_send(sock, no, strlen(no) + 1);
     if (bytes_sent <= 0)
     {
         perror("send(2): ");
